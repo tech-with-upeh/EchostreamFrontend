@@ -1,53 +1,65 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+export type GradientTuple = readonly [string, string, ...string[]];
 
-import { Platform } from 'react-native';
+export interface Theme {
+  background: string;
+  bgGradient: GradientTuple;
+  topGlow: string;
+  bottomGlow: string;
+  onSurface: string;
+  onSurfaceVariant: string;
+  primary: string;
+  primaryDim: string;
+  buttonText: string;
+  robotShell: string;
+  robotBorder: string;
+  robotVisor: string;
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+  // --- New additions (auth screens / cards / inputs) ---
+  // Card / bottom-sheet background, sits on top of `background`.
+  surface: string;
+  // Fill for tab switchers, input backgrounds, chips.
+  surfaceVariant: string;
+  // Hairline border color for inputs, dividers, outline buttons.
+  outline: string;
+}
 
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
+export type ColorScheme = 'light' | 'dark';
+
+export const PALETTE: Record<ColorScheme, Theme> = {
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    background: '#131317',
+    bgGradient: ['#131317', '#0e0e12', '#050508'],
+    topGlow: 'rgba(0, 238, 252, 0.16)',
+    bottomGlow: 'rgba(0, 238, 252, 0.08)',
+    onSurface: '#E5E1E7',
+    onSurfaceVariant: '#D4C0D7',
+    primary: '#00EEFC', // Glacier Cyan / Teal-Green
+    primaryDim: '#00B4D8',
+    buttonText: '#002022',
+    robotShell: '#1B1B1F',
+    robotBorder: '#353439',
+    robotVisor: '#0E0E12',
+
+    surface: '#1A1A1F',
+    surfaceVariant: 'rgba(255, 255, 255, 0.06)',
+    outline: 'rgba(255, 255, 255, 0.12)',
+  },
+  light: {
+    background: '#F6FAFA',
+    bgGradient: ['#FFFFFF', '#EEF8F8', '#E2F2F4'],
+    topGlow: 'rgba(0, 190, 210, 0.15)',
+    bottomGlow: 'rgba(0, 131, 143, 0.10)',
+    onSurface: '#192021',
+    onSurfaceVariant: '#546264',
+    primary: '#00838F',
+    primaryDim: '#00686F',
+    buttonText: '#FFFFFF',
+    robotShell: '#FFFFFF',
+    robotBorder: '#CEDEE0',
+    robotVisor: '#192021',
+
+    surface: '#FFFFFF',
+    surfaceVariant: 'rgba(0, 0, 0, 0.04)',
+    outline: 'rgba(0, 0, 0, 0.10)',
   },
 };
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
