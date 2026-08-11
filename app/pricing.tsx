@@ -62,7 +62,7 @@ const PLANS: Plan[] = [
       'Unlimited custom style training',
       'Dedicated account manager',
     ],
-    button: 'Contact Sales',
+    button: 'Upgrade Now',
   },
 ];
 
@@ -211,7 +211,7 @@ export default function PricingScreen() {
             style={[
               styles.headingAccent,
               {
-                color: theme.primary,
+                color: theme.onSurface,
               },
             ]}
           >
@@ -292,6 +292,11 @@ function PricingCard({
       style={[
         styles.cardWrapper,
         isMobile && styles.cardWrapperMobile,
+        
+            plan.popular && {
+                transform: [{ translateY: -15 }],
+            }
+        
       ]}
     >
       {/* =========================================================
@@ -303,18 +308,11 @@ function PricingCard({
           style={[
             styles.popularBadge,
             {
-              backgroundColor: theme.primary,
+              backgroundColor: `${theme.primary}`,
             },
           ]}
         >
-          <View
-            style={[
-              styles.badgeDot,
-              {
-                backgroundColor: theme.buttonText,
-              },
-            ]}
-          />
+         
 
           <Text
             style={[
@@ -339,7 +337,7 @@ function PricingCard({
           {
             backgroundColor: theme.surface,
             borderColor: plan.popular
-              ? theme.primary
+              ? `${theme.primaryDim}45`
               : theme.outline,
           },
 
@@ -355,17 +353,7 @@ function PricingCard({
           },
         ]}
       >
-        {/* Small cyan indicator */}
-        <View
-          style={[
-            styles.cardIndicator,
-            {
-              backgroundColor: plan.popular
-                ? theme.primary
-                : theme.primaryDim,
-            },
-          ]}
-        />
+     
 
         {/* Plan */}
         <Text
@@ -439,7 +427,7 @@ function PricingCard({
                 style={[
                   styles.checkCircle,
                   {
-                    backgroundColor: theme.primary,
+                    backgroundColor: `${theme.primaryDim}`,
                   },
                 ]}
               >
