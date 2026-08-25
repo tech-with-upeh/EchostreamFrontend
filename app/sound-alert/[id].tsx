@@ -1,12 +1,12 @@
+import ToggleRow from '@/components/common/ToggleRow';
+import { useAppTheme } from '@/hooks/use-theme-color';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/hooks/use-theme-color';
-import ToggleRow from '@/components/common/ToggleRow';
 
 const ALERTS: Record<string, { name: string; emoji: string; coins?: number }> = {
   '1': { name: 'Any Gift', emoji: '🎁' },
@@ -14,6 +14,8 @@ const ALERTS: Record<string, { name: string; emoji: string; coins?: number }> = 
   '3': { name: 'Any Gift', emoji: '🎁' },
   '4': { name: 'Follow', emoji: '🚫' },
 };
+
+const { width, height } = Dimensions.get('window');
 
 export default function SoundAlertScreen() {
   const { theme } = useAppTheme();
@@ -39,7 +41,21 @@ export default function SoundAlertScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
-      <View style={StyleSheet.absoluteFillObject}><LinearGradient colors={theme.bgGradient} style={StyleSheet.absoluteFillObject} /><LinearGradient colors={[theme.topGlow, 'transparent']} style={styles.glow} /></View>
+      <View style={StyleSheet.absoluteFillObject}>
+                    <LinearGradient colors={theme.bgGradient} style={StyleSheet.absoluteFillObject} />
+                    <LinearGradient
+                      colors={[theme.topGlow, 'transparent']}
+                      style={styles.topAmbientGlow}
+                      start={{ x: 0.5, y: 0 }}
+                      end={{ x: 0.5, y: 1 }}
+                    />
+                    <LinearGradient
+                      colors={[theme.bottomGlow, 'transparent']}
+                      style={styles.bottomAmbientGlow}
+                      start={{ x: 0.5, y: 1 }}
+                      end={{ x: 0.5, y: 0 }}
+                    />
+              </View>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Ionicons name="arrow-back" size={22} color={theme.onSurface} /></Pressable>
         <Text style={[styles.title, { color: theme.onSurface }]}>Sound Alert</Text>
@@ -68,4 +84,19 @@ export default function SoundAlertScreen() {
   );
 }
 
-const styles = StyleSheet.create({ container:{flex:1}, glow:{position:'absolute',top:-40,left:'10%',width:'80%',height:260,borderRadius:200}, header:{height:58,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}, title:{fontSize:18,fontWeight:'700'}, content:{padding:20,paddingBottom:60}, eventHeader:{flexDirection:'row',alignItems:'center',gap:14,marginBottom:24}, bigEmoji:{fontSize:42}, eventName:{fontSize:19,fontWeight:'800'}, eventSub:{fontSize:12,marginTop:3}, label:{fontSize:12,fontWeight:'700',textTransform:'uppercase',letterSpacing:.4,marginBottom:10,marginTop:8}, card:{borderWidth:1,borderRadius:18,padding:16,marginBottom:16}, fieldLabel:{fontSize:13,fontWeight:'600',marginBottom:7}, input:{borderWidth:1,borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:14}, option:{flexDirection:'row',alignItems:'center',gap:12,borderWidth:1,borderColor:'transparent',borderRadius:12,padding:12,marginBottom:8}, optionText:{flex:1}, optionTitle:{fontSize:14,fontWeight:'700'}, optionSub:{fontSize:12,lineHeight:17,marginTop:2}, upload:{alignItems:'center',justifyContent:'center',borderStyle:'dashed',borderWidth:1,borderRadius:14,paddingVertical:28}, uploadTitle:{fontSize:14,fontWeight:'700',marginTop:8}, uploadSub:{fontSize:12,marginTop:4}, fileRow:{flexDirection:'row',alignItems:'center',gap:12}, fileIcon:{width:42,height:42,borderRadius:12,alignItems:'center',justifyContent:'center'}, fileName:{fontSize:13,fontWeight:'700'}, fileSize:{fontSize:11,marginTop:3}, replace:{fontSize:12,fontWeight:'700'}, info:{borderRadius:14,padding:14,flexDirection:'row',gap:10,marginBottom:16}, infoText:{flex:1,fontSize:12,lineHeight:18}, save:{borderRadius:14,paddingVertical:14,alignItems:'center',marginTop:8}, saveText:{fontSize:14,fontWeight:'800'} });
+const styles = StyleSheet.create({ container:{flex:1}, topAmbientGlow: {
+    position: 'absolute',
+    top: -60,
+    alignSelf: 'center',
+    width: width * 1.2,
+    height: height * 0.45,
+    borderRadius: width,
+  },
+  bottomAmbientGlow: {
+    position: 'absolute',
+    bottom: -60,
+    alignSelf: 'center',
+    width: width * 1.2,
+    height: height * 0.35,
+    borderRadius: width,
+  }, header:{height:58,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}, title:{fontSize:18,fontWeight:'700'}, content:{padding:20,paddingBottom:60}, eventHeader:{flexDirection:'row',alignItems:'center',gap:14,marginBottom:24}, bigEmoji:{fontSize:42}, eventName:{fontSize:19,fontWeight:'800'}, eventSub:{fontSize:12,marginTop:3}, label:{fontSize:12,fontWeight:'700',textTransform:'uppercase',letterSpacing:.4,marginBottom:10,marginTop:8}, card:{borderWidth:1,borderRadius:18,padding:16,marginBottom:16}, fieldLabel:{fontSize:13,fontWeight:'600',marginBottom:7}, input:{borderWidth:1,borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:14}, option:{flexDirection:'row',alignItems:'center',gap:12,borderWidth:1,borderColor:'transparent',borderRadius:12,padding:12,marginBottom:8}, optionText:{flex:1}, optionTitle:{fontSize:14,fontWeight:'700'}, optionSub:{fontSize:12,lineHeight:17,marginTop:2}, upload:{alignItems:'center',justifyContent:'center',borderStyle:'dashed',borderWidth:1,borderRadius:14,paddingVertical:28}, uploadTitle:{fontSize:14,fontWeight:'700',marginTop:8}, uploadSub:{fontSize:12,marginTop:4}, fileRow:{flexDirection:'row',alignItems:'center',gap:12}, fileIcon:{width:42,height:42,borderRadius:12,alignItems:'center',justifyContent:'center'}, fileName:{fontSize:13,fontWeight:'700'}, fileSize:{fontSize:11,marginTop:3}, replace:{fontSize:12,fontWeight:'700'}, info:{borderRadius:14,padding:14,flexDirection:'row',gap:10,marginBottom:16}, infoText:{flex:1,fontSize:12,lineHeight:18}, save:{borderRadius:14,paddingVertical:14,alignItems:'center',marginTop:8}, saveText:{fontSize:14,fontWeight:'800'} });

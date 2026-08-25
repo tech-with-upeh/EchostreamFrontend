@@ -1,12 +1,14 @@
+import ToggleRow from '@/components/common/ToggleRow';
+import { useAppTheme } from '@/hooks/use-theme-color';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/hooks/use-theme-color';
-import ToggleRow from '@/components/common/ToggleRow';
+
+const { width, height } = Dimensions.get('window');
 
 export default function NewSoundAlertScreen() {
   const { theme } = useAppTheme();
@@ -31,9 +33,20 @@ export default function NewSoundAlertScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
       <View style={StyleSheet.absoluteFillObject}>
-        <LinearGradient colors={theme.bgGradient} style={StyleSheet.absoluteFillObject} />
-        <LinearGradient colors={[theme.topGlow, 'transparent']} style={styles.glow} />
-      </View>
+              <LinearGradient colors={theme.bgGradient} style={StyleSheet.absoluteFillObject} />
+              <LinearGradient
+                colors={[theme.topGlow, 'transparent']}
+                style={styles.topAmbientGlow}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+              />
+              <LinearGradient
+                colors={[theme.bottomGlow, 'transparent']}
+                style={styles.bottomAmbientGlow}
+                start={{ x: 0.5, y: 1 }}
+                end={{ x: 0.5, y: 0 }}
+              />
+        </View>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Ionicons name="arrow-back" size={22} color={theme.onSurface} /></Pressable>
         <Text style={[styles.title, { color: theme.onSurface }]}>New Sound Alert</Text>
@@ -98,7 +111,22 @@ export default function NewSoundAlertScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  glow: { position: 'absolute', top: -40, left: '10%', width: '80%', height: 260, borderRadius: 200 },
+    topAmbientGlow: {
+    position: 'absolute',
+    top: -60,
+    alignSelf: 'center',
+    width: width * 1.2,
+    height: height * 0.45,
+    borderRadius: width,
+  },
+  bottomAmbientGlow: {
+    position: 'absolute',
+    bottom: -60,
+    alignSelf: 'center',
+    width: width * 1.2,
+    height: height * 0.35,
+    borderRadius: width,
+  },
   header: { height: 58, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 18, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 60 },

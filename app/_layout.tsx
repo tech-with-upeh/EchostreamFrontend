@@ -34,10 +34,11 @@ export default function RootLayout() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(dashboard)" options={{ headerShown: false }} />
       <Stack.Screen name="pricing" options={{ headerShown: false }} />
-       <Stack.Screen name="preferences" options={{ headerShown: false }} />
-        <Stack.Screen name="voices" options={{ headerShown: false }} />
-         <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen name="voice-select" options={{ headerShown: false }} />
+      <Stack.Screen name="preferences" options={{ headerShown: false }} />
+      <Stack.Screen name="voices" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="voice-select" options={{ headerShown: false }} />
+      <Stack.Screen name="sound-alert" options={{ headerShown: false }} />
     </Stack>
   );
 }
