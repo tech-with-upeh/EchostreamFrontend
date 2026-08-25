@@ -824,6 +824,107 @@ export default function SettingsScreen() {
           </Pressable>
         </Animated.View>
 
+        {/* Credits Usage */}
+        <Animated.View
+          entering={FadeInUp.duration(500).delay(120)}
+          style={styles.creditsWrapper}
+        >
+          <View
+            style={[
+              styles.creditsCard,
+              {
+                backgroundColor: theme.surfaceVariant,
+                borderColor: theme.outline,
+              },
+            ]}
+          >
+            <View style={styles.creditsHeader}>
+              <View>
+                <Text
+                  style={[
+                    styles.creditsLabel,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  CREDITS USAGE
+                </Text>
+                <Text
+                  style={[
+                    styles.creditsTitle,
+                    { color: theme.onSurface },
+                  ]}
+                >
+                  Monthly credits
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.creditsBadge,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Ionicons
+                  name="flash"
+                  size={15}
+                  color={theme.primary}
+                />
+                <Text
+                  style={[
+                    styles.creditsBadgeText,
+                    { color: theme.primary },
+                  ]}
+                >
+                  FREE
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.creditsDivider,
+                { backgroundColor: theme.outline },
+              ]}
+            />
+
+            <View style={styles.creditsUsageRow}>
+              <Text
+                style={[
+                  styles.creditsUsageLabel,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                Credits remaining
+              </Text>
+              <Text
+                style={[
+                  styles.creditsUsageValue,
+                  { color: theme.onSurface },
+                ]}
+              >
+                100 / 100
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.creditsProgressTrack,
+                { backgroundColor: theme.outline },
+              ]}
+            >
+              <View
+                style={[
+                  styles.creditsProgressFill,
+                  {
+                    backgroundColor: theme.primary,
+                    width: '100%',
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        </Animated.View>
+
         {/* Upgrade */}
         <Animated.View
           entering={FadeInUp.duration(500).delay(
@@ -1943,6 +2044,80 @@ const styles = StyleSheet.create({
 
   profileEmail: {
     fontSize: 12.5,
+  },
+
+  creditsWrapper: {
+    marginBottom: 20,
+  },
+
+  creditsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+  },
+
+  creditsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  creditsLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 5,
+  },
+
+  creditsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
+  creditsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+
+  creditsBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  creditsDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 16,
+  },
+
+  creditsUsageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
+  creditsUsageLabel: {
+    fontSize: 12,
+  },
+
+  creditsUsageValue: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  creditsProgressTrack: {
+    height: 6,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+
+  creditsProgressFill: {
+    height: '100%',
+    borderRadius: 10,
   },
 
   proWrapper: {
