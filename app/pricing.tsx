@@ -1,16 +1,17 @@
 import { useAppTheme } from '@/hooks/use-theme-color';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router, useRouter } from 'expo-router';
 import React from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from 'react-native';
 
 type Plan = {
@@ -70,6 +71,7 @@ export default function PricingScreen() {
   const { theme, isDark } = useAppTheme();
   const { width } = useWindowDimensions();
 
+  const router = useRouter();
   const isMobile = width < 700;
 
   return (
@@ -142,7 +144,7 @@ export default function PricingScreen() {
             ======================================================= */}
 
         <View style={styles.brandContainer}>
-          <View
+          {/* <View
             style={[
               styles.brandIcon,
               {
@@ -177,8 +179,9 @@ export default function PricingScreen() {
                 },
               ]}
             />
-          </View>
+          </View> */}
 
+            <MaterialCommunityIcons name="waveform" size={32} color={theme.onSurfaceVariant} />
           <Text
             style={[
               styles.brandText,
@@ -288,6 +291,7 @@ function PricingCard({
   isMobile: boolean;
 }) {
   return (
+    
     <View
       style={[
         styles.cardWrapper,
@@ -453,69 +457,34 @@ function PricingCard({
         </View>
 
         {/* Button pushed to bottom */}
+      
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            activeOpacity={0.82}
-            style={[
-              styles.button,
-              {
-                borderColor: plan.popular
-                  ? theme.primary
-                  : theme.outline,
-              },
-            ]}
-          >
-            {plan.popular ? (
-              <LinearGradient
-                colors={[
-                  theme.primary,
-                  theme.primaryDim,
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryButtonGradient}
-              >
-                <Text
-                  style={[
-                    styles.buttonText,
-                    {
-                      color: theme.buttonText,
-                    },
-                  ]}
-                >
-                  {plan.button}
-                </Text>
-
-                <Ionicons
-                  name="arrow-forward"
-                  size={15}
-                  color={theme.buttonText}
-                  style={styles.buttonIcon}
-                />
-              </LinearGradient>
-            ) : (
-              <View style={styles.outlineButtonContent}>
-                <Text
-                  style={[
-                    styles.buttonText,
-                    {
-                      color: theme.onSurface,
-                    },
-                  ]}
-                >
-                  {plan.button}
-                </Text>
-
-                <Ionicons
-                  name="arrow-forward"
-                  size={15}
-                  color={theme.primary}
-                  style={styles.buttonIcon}
-                />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+  <TouchableOpacity
+    activeOpacity={0.82}
+    onPress={() => router.push('/(dashboard)')}
+    style={[
+      styles.button,
+      { borderColor: plan.popular ? theme.primary : theme.outline },
+    ]}
+  >
+    {plan.popular ? (
+      <LinearGradient
+        colors={[theme.primary, theme.primaryDim]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.primaryButtonGradient}
+      >
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>{plan.button}</Text>
+        <Ionicons name="arrow-forward" size={15} color={theme.buttonText} style={styles.buttonIcon} />
+      </LinearGradient>
+    ) : (
+      <View style={styles.outlineButtonContent}>
+        <Text style={[styles.buttonText, { color: theme.onSurface }]}>{plan.button}</Text>
+        <Ionicons name="arrow-forward" size={15} color={theme.primary} style={styles.buttonIcon} />
+      </View>
+    )}
+  </TouchableOpacity>
+</View>
       </View>
     </View>
   );
