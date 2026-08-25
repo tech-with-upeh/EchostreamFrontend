@@ -18,26 +18,14 @@ export default function NewSoundAlertScreen() {
   const [sound, setSound] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const pickSound = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['audio/*'],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
+    const result = await DocumentPicker.getDocumentAsync({ type: ['audio/*'], copyToCacheDirectory: true, multiple: false });
     if (!result.canceled) setSound(result.assets[0]);
   };
 
   const save = () => {
-    if (!name.trim()) {
-      Alert.alert('Missing name', 'Give this sound alert a name first.');
-      return;
-    }
-    if (mode === 'sound' && !sound) {
-      Alert.alert('Missing sound', 'Upload an audio file for this custom sound alert.');
-      return;
-    }
-    Alert.alert('Saved', 'The sound alert is ready to connect to the backend.', [
-      { text: 'Done', onPress: () => router.back() },
-    ]);
+    if (!name.trim()) return Alert.alert('Missing name', 'Give this sound alert a name first.');
+    if (mode === 'sound' && !sound) return Alert.alert('Missing sound', 'Upload an audio file for this custom sound alert.');
+    Alert.alert('Saved', 'The sound alert is ready to connect to the backend.', [{ text: 'Done', onPress: () => router.back() }]);
   };
 
   return (
@@ -109,5 +97,31 @@ export default function NewSoundAlertScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1}, glow:{position:'absolute',top:-40,left:'10%',width:'80%',height:260,borderRadius:200}, header:{height:58,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}, title:{fontSize:18,fontWeight:'700'}, content:{padding:20,paddingBottom:60}, label:{fontSize:12,fontWeight:'700',textTransform:'uppercase',letterSpacing:.4,marginBottom:10,marginTop:8}, card:{borderWidth:1,borderRadius:18,padding:16,marginBottom:16}, emojiRow:{flexDirection:'row',alignItems:'center',gap:14}, bigEmoji:{fontSize:38}, fieldLabel:{fontSize:13,fontWeight:'600',marginBottom:7}, input:{borderWidth:1,borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:14}, option:{flexDirection:'row',alignItems:'center',gap:12,borderWidth:1,borderColor:'transparent',borderRadius:12,padding:12,marginBottom:8}, optionText:{flex:1}, optionTitle:{fontSize:14,fontWeight:'700'}, optionSub:{fontSize:12,lineHeight:17,marginTop:2}, upload:{alignItems:'center',justifyContent:'center,borderStyle':'dashed',borderWidth:1,borderRadius:14,paddingVertical:28}, uploadTitle:{fontSize:14,fontWeight:'700',marginTop:8}, uploadSub:{fontSize:12,marginTop:4}, fileRow:{flexDirection:'row',alignItems:'center',gap:12}, fileIcon:{width:42,height:42,borderRadius:12,alignItems:'center',justifyContent:'center'}, fileName:{fontSize:13,fontWeight:'700'}, fileSize:{fontSize:11,marginTop:3}, replace:{fontSize:12,fontWeight:'700'}, info:{borderRadius:14,padding:14,flexDirection:'row',gap:10}, infoText:{flex:1,fontSize:12,lineHeight:18}, save:{borderRadius:14,paddingVertical:14,alignItems:'center',marginTop:8}, saveText:{fontSize:14,fontWeight:'800'}
+  container: { flex: 1 },
+  glow: { position: 'absolute', top: -40, left: '10%', width: '80%', height: 260, borderRadius: 200 },
+  header: { height: 58, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 18, fontWeight: '700' },
+  content: { padding: 20, paddingBottom: 60 },
+  label: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10, marginTop: 8 },
+  card: { borderWidth: 1, borderRadius: 18, padding: 16, marginBottom: 16 },
+  emojiRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  bigEmoji: { fontSize: 38 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', marginBottom: 7 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: 'transparent', borderRadius: 12, padding: 12, marginBottom: 8 },
+  optionText: { flex: 1 },
+  optionTitle: { fontSize: 14, fontWeight: '700' },
+  optionSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  upload: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1, borderRadius: 14, paddingVertical: 28 },
+  uploadTitle: { fontSize: 14, fontWeight: '700', marginTop: 8 },
+  uploadSub: { fontSize: 12, marginTop: 4 },
+  fileRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fileIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  fileName: { fontSize: 13, fontWeight: '700' },
+  fileSize: { fontSize: 11, marginTop: 3 },
+  replace: { fontSize: 12, fontWeight: '700' },
+  info: { borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10 },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  save: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  saveText: { fontSize: 14, fontWeight: '800' },
 });
