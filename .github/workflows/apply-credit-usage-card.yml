@@ -1,0 +1,43 @@
+name: Apply credit usage card
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add credits usage card
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/settings.tsx')
+          s = p.read_text()
+
+          marker = "        {/* Upgrade */}\n"
+          if "styles.creditsCard" not in s:
+              card = '''        {/* Credits Usage */}\n        <Animated.View\n          entering={FadeInUp.duration(500).delay(120)}\n          style={styles.creditsWrapper}\n        >\n          <View\n            style={[\n              styles.creditsCard,\n              {\n                backgroundColor: theme.surfaceVariant,\n                borderColor: theme.outline,\n              },\n            ]}\n          >\n            <View style={styles.creditsHeader}>\n              <View>\n                <Text\n                  style={[\n                    styles.creditsLabel,\n                    { color: theme.onSurfaceVariant },\n                  ]}\n                >\n                  CREDITS USAGE\n                </Text>\n                <Text\n                  style={[\n                    styles.creditsTitle,\n                    { color: theme.onSurface },\n                  ]}\n                >\n                  Monthly credits\n                </Text>\n              </View>\n\n              <View\n                style={[\n                  styles.creditsBadge,\n                  { backgroundColor: theme.surface },\n                ]}\n              >\n                <Ionicons\n                  name="flash"\n                  size={15}\n                  color={theme.primary}\n                />\n                <Text\n                  style={[\n                    styles.creditsBadgeText,\n                    { color: theme.primary },\n                  ]}\n                >\n                  FREE\n                </Text>\n              </View>\n            </View>\n\n            <View\n              style={[\n                styles.creditsDivider,\n                { backgroundColor: theme.outline },\n              ]}\n            />\n\n            <View style={styles.creditsUsageRow}>\n              <Text\n                style={[\n                  styles.creditsUsageLabel,\n                  { color: theme.onSurfaceVariant },\n                ]}\n              >\n                Credits remaining\n              </Text>\n              <Text\n                style={[\n                  styles.creditsUsageValue,\n                  { color: theme.onSurface },\n                ]}\n              >\n                100 / 100\n              </Text>\n            </View>\n\n            <View\n              style={[\n                styles.creditsProgressTrack,\n                { backgroundColor: theme.outline },\n              ]}\n            >\n              <View\n                style={[\n                  styles.creditsProgressFill,\n                  {\n                    backgroundColor: theme.primary,\n                    width: '100%',\n                  },\n                ]}\n              />\n            </View>\n          </View>\n        </Animated.View>\n\n'''
+              if marker not in s:
+                  raise SystemExit('Upgrade marker not found')
+              s = s.replace(marker, card + marker, 1)
+
+          style_marker = "  proWrapper: {\n    marginBottom: 24,\n  },\n"
+          styles = '''  creditsWrapper: {\n    marginBottom: 20,\n  },\n\n  creditsCard: {\n    borderRadius: 18,\n    borderWidth: 1,\n    padding: 18,\n  },\n\n  creditsHeader: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n  },\n\n  creditsLabel: {\n    fontSize: 10,\n    fontWeight: '800',\n    letterSpacing: 1,\n    marginBottom: 5,\n  },\n\n  creditsTitle: {\n    fontSize: 18,\n    fontWeight: '800',\n  },\n\n  creditsBadge: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 5,\n    paddingHorizontal: 10,\n    paddingVertical: 6,\n    borderRadius: 20,\n  },\n\n  creditsBadgeText: {\n    fontSize: 10,\n    fontWeight: '800',\n  },\n\n  creditsDivider: {\n    height: StyleSheet.hairlineWidth,\n    marginVertical: 16,\n  },\n\n  creditsUsageRow: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    justifyContent: 'space-between',\n    marginBottom: 8,\n  },\n\n  creditsUsageLabel: {\n    fontSize: 12,\n  },\n\n  creditsUsageValue: {\n    fontSize: 12,\n    fontWeight: '700',\n  },\n\n  creditsProgressTrack: {\n    height: 6,\n    borderRadius: 10,\n    overflow: 'hidden',\n  },\n\n  creditsProgressFill: {\n    height: '100%',\n    borderRadius: 10,\n  },\n\n'''
+          if style_marker not in s:
+              raise SystemExit('Style marker not found')
+          s = s.replace(style_marker, styles + style_marker, 1)
+          p.write_text(s)
+          PY
+      - name: Commit changes and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-credit-usage-card.yml
+          git add app/settings.tsx
+          git commit -m "feat: add credits usage card to settings" || exit 0
+          git push
