@@ -1,8 +1,9 @@
-export interface GiftOption { id: string; name: string; emoji: string; coins?: number; category: string; }
+export interface GiftOption { id: string; name: string; emoji: string; coins?: number; category: string; isAnyGift?: boolean; }
 export interface SystemSound { id: string; name: string; description: string; icon: string; }
 
 export const TIKTOK_GIFTS: GiftOption[] = [
-  { id: 'rose', name: 'Rose', emoji: '🌹', coins: 1, category: 'Popular' },
+  { id: 'any-gift', name: 'Any Gift', emoji: '🎁', category: 'All Gifts', isAnyGift: true },
+  { id: 'rosa', name: 'Rosa', emoji: '🌹', coins: 10, category: 'Popular' },
   { id: 'finger-heart', name: 'Finger Heart', emoji: '🫰', coins: 5, category: 'Popular' },
   { id: 'gg', name: 'GG', emoji: '👏', coins: 1, category: 'Popular' },
   { id: 'coffee', name: 'Coffee', emoji: '☕', coins: 1, category: 'Food & Drink' },
