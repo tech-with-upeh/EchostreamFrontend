@@ -1,0 +1,71 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/hooks/use-theme-color';
+import ToggleRow from '@/components/common/ToggleRow';
+
+const ALERTS: Record<string, { name: string; emoji: string; coins?: number }> = {
+  '1': { name: 'Any Gift', emoji: '🎁' },
+  '2': { name: 'Rosa', emoji: '🌹', coins: 10 },
+  '3': { name: 'Any Gift', emoji: '🎁' },
+  '4': { name: 'Follow', emoji: '🚫' },
+};
+
+export default function SoundAlertScreen() {
+  const { theme } = useAppTheme();
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const initial = ALERTS[id ?? ''] ?? { name: 'Sound Alert', emoji: '🎵' };
+  const [name, setName] = useState(initial.name);
+  const [emoji, setEmoji] = useState(initial.emoji);
+  const [mode, setMode] = useState<'tts' | 'sound'>('sound');
+  const [enabled, setEnabled] = useState(true);
+  const [sound, setSound] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+
+  const pickSound = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: ['audio/*'], copyToCacheDirectory: true, multiple: false });
+    if (!result.canceled) setSound(result.assets[0]);
+  };
+
+  const save = () => {
+    if (!name.trim()) return Alert.alert('Missing name', 'Give this alert a name.');
+    if (mode === 'sound' && !sound) return Alert.alert('No sound selected', 'Upload an audio file or choose Text to Speech.');
+    Alert.alert('Saved', 'Your sound alert configuration is ready to connect to the backend.', [{ text: 'Done', onPress: () => router.back() }]);
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      <View style={StyleSheet.absoluteFillObject}><LinearGradient colors={theme.bgGradient} style={StyleSheet.absoluteFillObject} /><LinearGradient colors={[theme.topGlow, 'transparent']} style={styles.glow} /></View>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={12}><Ionicons name="arrow-back" size={22} color={theme.onSurface} /></Pressable>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Sound Alert</Text>
+        <Pressable onPress={() => Alert.alert('Delete alert?', 'This will remove the alert configuration.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => router.back() }])} hitSlop={12}><Ionicons name="trash-outline" size={20} color={theme.onSurfaceVariant} /></Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.eventHeader}><Text style={styles.bigEmoji}>{emoji}</Text><View style={{ flex: 1 }}><Text style={[styles.eventName, { color: theme.onSurface }]}>{name}</Text><Text style={[styles.eventSub, { color: theme.onSurfaceVariant }]}>{initial.coins ? `${initial.coins} coins` : 'Gift / event trigger'}</Text></View></View>
+        <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>Alert details</Text>
+        <View style={[styles.card, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
+          <Text style={[styles.fieldLabel, { color: theme.onSurface }]}>Name</Text>
+          <TextInput value={name} onChangeText={setName} style={[styles.input, { color: theme.onSurface, borderColor: theme.outline, backgroundColor: theme.surface }]} />
+          <Text style={[styles.fieldLabel, { color: theme.onSurface, marginTop: 14 }]}>Emoji</Text>
+          <TextInput value={emoji} onChangeText={setEmoji} maxLength={4} style={[styles.input, { color: theme.onSurface, borderColor: theme.outline, backgroundColor: theme.surface }]} />
+        </View>
+        <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>Action</Text>
+        <View style={[styles.card, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
+          <Pressable onPress={() => setMode('tts')} style={[styles.option, mode === 'tts' && { borderColor: theme.primary }]}><MaterialCommunityIcons name="text-to-speech" size={21} color={mode === 'tts' ? theme.primary : theme.onSurfaceVariant} /><View style={styles.optionText}><Text style={[styles.optionTitle, { color: theme.onSurface }]}>Text to Speech</Text><Text style={[styles.optionSub, { color: theme.onSurfaceVariant }]}>Generate speech for this event.</Text></View><Ionicons name={mode === 'tts' ? 'radio-button-on' : 'radio-button-off'} size={20} color={mode === 'tts' ? theme.primary : theme.onSurfaceVariant} /></Pressable>
+          <Pressable onPress={() => setMode('sound')} style={[styles.option, mode === 'sound' && { borderColor: theme.primary }]}><Ionicons name="musical-notes-outline" size={21} color={mode === 'sound' ? theme.primary : theme.onSurfaceVariant} /><View style={styles.optionText}><Text style={[styles.optionTitle, { color: theme.onSurface }]}>Custom Sound</Text><Text style={[styles.optionSub, { color: theme.onSurfaceVariant }]}>Play your uploaded sound.</Text></View><Ionicons name={mode === 'sound' ? 'radio-button-on' : 'radio-button-off'} size={20} color={mode === 'sound' ? theme.primary : theme.onSurfaceVariant} /></Pressable>
+        </View>
+        {mode === 'sound' && <View style={[styles.card, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>{sound ? <View style={styles.fileRow}><View style={[styles.fileIcon, { backgroundColor: theme.surface }]}><Ionicons name="musical-note" size={20} color={theme.primary} /></View><View style={{ flex: 1 }}><Text numberOfLines={1} style={[styles.fileName, { color: theme.onSurface }]}>{sound.name}</Text><Text style={[styles.fileSize, { color: theme.onSurfaceVariant }]}>{Math.round((sound.size ?? 0) / 1024)} KB</Text></View><Pressable onPress={pickSound}><Text style={[styles.replace, { color: theme.primary }]}>Replace</Text></Pressable></View> : <Pressable onPress={pickSound} style={[styles.upload, { borderColor: theme.outline }]}><Ionicons name="cloud-upload-outline" size={28} color={theme.primary} /><Text style={[styles.uploadTitle, { color: theme.onSurface }]}>Upload / choose sound</Text><Text style={[styles.uploadSub, { color: theme.onSurfaceVariant }]}>MP3, WAV, M4A and other audio files</Text></Pressable>}</View>}
+        {mode === 'tts' && <View style={[styles.info, { backgroundColor: theme.surfaceVariant }]}><Ionicons name="information-circle-outline" size={18} color={theme.primary} /><Text style={[styles.infoText, { color: theme.onSurfaceVariant }]}>This uses your configured TTS voice. Gift-specific TTS text can be connected when the backend is wired.</Text></View>}
+        <View style={[styles.card, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline, marginTop: 16 }]}><ToggleRow label="Enabled" value={enabled} onValueChange={setEnabled} bold /></View>
+        <Pressable onPress={save} style={[styles.save, { backgroundColor: theme.primary }]}><Text style={[styles.saveText, { color: theme.buttonText }]}>Save Changes</Text></Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({ container:{flex:1}, glow:{position:'absolute',top:-40,left:'10%',width:'80%',height:260,borderRadius:200}, header:{height:58,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}, title:{fontSize:18,fontWeight:'700'}, content:{padding:20,paddingBottom:60}, eventHeader:{flexDirection:'row',alignItems:'center',gap:14,marginBottom:24}, bigEmoji:{fontSize:42}, eventName:{fontSize:19,fontWeight:'800'}, eventSub:{fontSize:12,marginTop:3}, label:{fontSize:12,fontWeight:'700',textTransform:'uppercase',letterSpacing:.4,marginBottom:10,marginTop:8}, card:{borderWidth:1,borderRadius:18,padding:16,marginBottom:16}, fieldLabel:{fontSize:13,fontWeight:'600',marginBottom:7}, input:{borderWidth:1,borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:14}, option:{flexDirection:'row',alignItems:'center',gap:12,borderWidth:1,borderColor:'transparent',borderRadius:12,padding:12,marginBottom:8}, optionText:{flex:1}, optionTitle:{fontSize:14,fontWeight:'700'}, optionSub:{fontSize:12,lineHeight:17,marginTop:2}, upload:{alignItems:'center',justifyContent:'center',borderStyle:'dashed',borderWidth:1,borderRadius:14,paddingVertical:28}, uploadTitle:{fontSize:14,fontWeight:'700',marginTop:8}, uploadSub:{fontSize:12,marginTop:4}, fileRow:{flexDirection:'row',alignItems:'center',gap:12}, fileIcon:{width:42,height:42,borderRadius:12,alignItems:'center',justifyContent:'center'}, fileName:{fontSize:13,fontWeight:'700'}, fileSize:{fontSize:11,marginTop:3}, replace:{fontSize:12,fontWeight:'700'}, info:{borderRadius:14,padding:14,flexDirection:'row',gap:10,marginBottom:16}, infoText:{flex:1,fontSize:12,lineHeight:18}, save:{borderRadius:14,paddingVertical:14,alignItems:'center',marginTop:8}, saveText:{fontSize:14,fontWeight:'800'} });
