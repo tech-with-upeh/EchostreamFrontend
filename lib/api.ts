@@ -10,6 +10,27 @@ export type TokenResponse = {
   token_type?: string;
 };
 
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
+
+export function setAuthTokens(tokens: TokenResponse) {
+  accessToken = tokens.access_token;
+  refreshToken = tokens.refresh_token;
+}
+
+export function getAccessToken() {
+  return accessToken;
+}
+
+export function getRefreshToken() {
+  return refreshToken;
+}
+
+export function clearAuthTokens() {
+  accessToken = null;
+  refreshToken = null;
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -33,6 +54,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(options.headers ?? {}),
       },
     });
