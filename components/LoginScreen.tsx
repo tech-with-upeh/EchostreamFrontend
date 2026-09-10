@@ -1,8 +1,9 @@
 import { useAppTheme } from '@/hooks/use-theme-color';
+import { login } from '@/lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -38,10 +39,10 @@ export default function LoginScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [switcherWidth, setSwitcherWidth] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLogin = activeTab === 'login';
 
-  // --- Tab indicator ---
   const tabProgress = useSharedValue(0);
   useEffect(() => {
     tabProgress.value = withSpring(isLogin ? 0 : 1, SPRING);
@@ -62,7 +63,6 @@ export default function LoginScreen() {
     color: interpolateColor(tabProgress.value, [0, 1], [theme.onSurfaceVariant, theme.buttonText]),
   }));
 
-  // --- CTA press + glow pulse ---
   const ctaScale = useSharedValue(1);
   const ctaAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
@@ -78,13 +78,45 @@ export default function LoginScreen() {
     shadowOpacity: 0.22 + glowPulse.value * 0.28,
   }));
 
+  const handleLogin = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      Alert.alert('Missing details', 'Please enter your email and password.');
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const tokens = await login(normalizedEmail, password);
+
+      // Token persistence/auth context will be added next. For now, this verifies
+      // the real backend credentials before entering the authenticated area.
+      if (!tokens.access_token || !tokens.refresh_token) {
+        throw new Error('The server returned an invalid login response.');
+      }
+
+      router.replace('/(dashboard)');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to log in. Please try again.';
+      Alert.alert('Login failed', message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (isLogin) {
-      router.push({ pathname: '/pricing'});
-    } else {
-      // Kick off the sign-up flow: send OTP, then go verify it
-      router.push({ pathname: '/verify-otp', params: { email, flow: 'signup' } });
+      void handleLogin();
+      return;
     }
+
+    router.push({ pathname: '/verify-otp', params: { email, flow: 'signup' } });
   };
 
   return (
@@ -103,7 +135,6 @@ export default function LoginScreen() {
         </Animated.View>
       }
     >
-      {/* Tab Switcher */}
       <Animated.View
         entering={FadeInDown.duration(500).delay(160)}
         onLayout={(e) => setSwitcherWidth(e.nativeEvent.layout.width)}
@@ -121,7 +152,6 @@ export default function LoginScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* Form */}
       <Animated.View layout={Layout.springify().damping(18)} style={styles.form}>
         {!isLogin && (
           <Animated.View
@@ -154,6 +184,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
             style={[styles.input, { color: theme.onSurface }]}
           />
         </Animated.View>
@@ -237,7 +268,6 @@ export default function LoginScreen() {
         )}
       </Animated.View>
 
-      {/* Bottom Section */}
       <Animated.View layout={Layout.springify().damping(18)} style={styles.bottomSection}>
         <Animated.View
           entering={FadeInUp.duration(500).delay(340)}
@@ -245,12 +275,13 @@ export default function LoginScreen() {
         >
           <Pressable
             onPress={handleSubmit}
+            disabled={isSubmitting}
             onPressIn={() => (ctaScale.value = withSpring(0.96, SPRING))}
             onPressOut={() => (ctaScale.value = withSpring(1, SPRING))}
           >
             <Animated.View style={[styles.button, { backgroundColor: theme.primary }, ctaAnimStyle]}>
               <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-                {isLogin ? 'Login' : 'Create Account'}
+                {isSubmitting ? 'Signing in…' : isLogin ? 'Login' : 'Create Account'}
               </Text>
             </Animated.View>
           </Pressable>
@@ -258,25 +289,19 @@ export default function LoginScreen() {
 
         <Animated.View entering={FadeIn.duration(400).delay(420)} style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: theme.outline }]} />
-          <Text style={[styles.dividerText, { color: theme.onSurfaceVariant }]}>
-            Or {isLogin ? 'login' : 'sign up'} with
-          </Text>
+          <Text style={[styles.dividerText, { color: theme.onSurfaceVariant }]}>Or {isLogin ? 'login' : 'sign up'} with</Text>
           <View style={[styles.dividerLine, { backgroundColor: theme.outline }]} />
         </Animated.View>
 
         <View style={styles.socialRow}>
           <Animated.View entering={FadeInUp.duration(450).delay(480)} style={{ flex: 1 }}>
-            <Pressable
-              style={[styles.socialButton, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}
-            >
+            <Pressable style={[styles.socialButton, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}>
               <Ionicons name="logo-google" size={18} color="#EA4335" />
               <Text style={[styles.socialButtonText, { color: theme.onSurface }]}>Google</Text>
             </Pressable>
           </Animated.View>
           <Animated.View entering={FadeInUp.duration(450).delay(540)} style={{ flex: 1 }}>
-            <Pressable
-              style={[styles.socialButton, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}
-            >
+            <Pressable style={[styles.socialButton, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}>
               <Ionicons name="logo-apple" size={20} color={theme.onSurface} />
               <Text style={[styles.socialButtonText, { color: theme.onSurface }]}>Apple</Text>
             </Pressable>
@@ -288,151 +313,29 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.6,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    opacity: 0.9,
-  },
-  tabSwitcher: {
-    flexDirection: 'row',
-    borderRadius: 9999,
-    padding: 4,
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    bottom: 4,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 9999,
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  form: {
-    gap: 12,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    padding: 0,
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  rememberMe: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rememberMeText: {
-    fontSize: 13,
-  },
-  forgotPassword: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  bottomSection: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  buttonWrapper: {
-    width: '100%',
-    borderRadius: 9999,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  button: {
-    paddingVertical: 16,
-    borderRadius: 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 20,
-    marginBottom: 16,
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.6,
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-    marginBottom: 8,
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
-  socialButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  headerSection: { paddingHorizontal: 24, paddingBottom: 24 },
+  headerTitle: { fontSize: 28, fontWeight: '700', letterSpacing: -0.6, marginBottom: 8 },
+  headerSubtitle: { fontSize: 14, fontWeight: '400', opacity: 0.9 },
+  tabSwitcher: { flexDirection: 'row', borderRadius: 9999, padding: 4, marginBottom: 20, overflow: 'hidden' },
+  tabIndicator: { position: 'absolute', top: 4, left: 4, bottom: 4, borderRadius: 9999, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 },
+  tabButton: { flex: 1, paddingVertical: 10, borderRadius: 9999, alignItems: 'center', zIndex: 1 },
+  tabButtonText: { fontSize: 14, fontWeight: '600' },
+  form: { gap: 12 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderRadius: 12 },
+  input: { flex: 1, fontSize: 14, padding: 0 },
+  optionsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  rememberMe: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  rememberMeText: { fontSize: 13 },
+  forgotPassword: { fontSize: 13, fontWeight: '600' },
+  bottomSection: { width: '100%', alignItems: 'center', marginTop: 24 },
+  buttonWrapper: { width: '100%', borderRadius: 9999, shadowOffset: { width: 0, height: 10 }, shadowRadius: 20, elevation: 10 },
+  button: { paddingVertical: 16, borderRadius: 9999, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginTop: 20, marginBottom: 16, gap: 10 },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, opacity: 0.6 },
+  dividerText: { fontSize: 12, fontWeight: '500' },
+  socialRow: { flexDirection: 'row', width: '100%', gap: 12, marginBottom: 8 },
+  socialButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: 9999, borderWidth: 1 },
+  socialButtonText: { fontSize: 14, fontWeight: '600' },
 });
