@@ -1,23 +1,20 @@
-import { useAppTheme } from '@/hooks/use-theme-color';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { ReactNode } from 'react';
+import { useAppTheme } from "@/hooks/use-theme-color";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { ReactNode } from "react";
 import {
-    Keyboard,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    View,
-    useWindowDimensions,
-} from 'react-native';
-import Animated, {
-    FadeIn,
-    FadeInUp,
-} from 'react-native-reanimated';
+  Keyboard,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 interface AuthShellProps {
   /** Show a circular back button floating over the gradient, top-left. */
@@ -111,10 +108,7 @@ export default function AuthShell({
    *   still capped so the form doesn't become huge.
    */
   const panelWidth = isTablet
-    ? Math.min(
-        width - 64,
-        isLandscape ? 560 : 520
-      )
+    ? Math.min(width - 64, isLandscape ? 560 : 520)
     : width;
 
   /*
@@ -132,15 +126,9 @@ export default function AuthShell({
           backgroundColor: theme.background,
         },
       ]}
-      edges={['top', 'left', 'right']}
+      edges={["top", "left", "right"]}
     >
-      <StatusBar
-        barStyle={
-          isDark
-            ? 'light-content'
-            : 'dark-content'
-        }
-      />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* =========================================================
           BACKGROUND
@@ -150,9 +138,7 @@ export default function AuthShell({
         style={StyleSheet.absoluteFillObject}
         onPress={Keyboard.dismiss}
       >
-        <View
-          style={StyleSheet.absoluteFillObject}
-        >
+        <View style={StyleSheet.absoluteFillObject}>
           {/* Main gradient */}
           <LinearGradient
             colors={theme.bgGradient}
@@ -161,10 +147,7 @@ export default function AuthShell({
 
           {/* Top atmospheric glow */}
           <LinearGradient
-            colors={[
-              theme.topGlow,
-              'transparent',
-            ]}
+            colors={[theme.topGlow, "transparent"]}
             style={[
               styles.topAmbientGlow,
               {
@@ -184,10 +167,7 @@ export default function AuthShell({
 
           {/* Bottom atmospheric glow */}
           <LinearGradient
-            colors={[
-              theme.bottomGlow,
-              'transparent',
-            ]}
+            colors={[theme.bottomGlow, "transparent"]}
             style={[
               styles.bottomAmbientGlow,
               {
@@ -216,9 +196,7 @@ export default function AuthShell({
             style={[
               styles.backButtonRow,
               {
-                top:
-                  (StatusBar.currentHeight ?? 0) +
-                  20,
+                top: (StatusBar.currentHeight ?? 0) + 20,
               },
             ]}
           >
@@ -228,16 +206,11 @@ export default function AuthShell({
               style={[
                 styles.backButton,
                 {
-                  backgroundColor:
-                    theme.surfaceVariant,
+                  backgroundColor: theme.surfaceVariant,
                 },
               ]}
             >
-              <Ionicons
-                name="arrow-back"
-                size={20}
-                color={theme.onSurface}
-              />
+              <Ionicons name="arrow-back" size={20} color={theme.onSurface} />
             </Pressable>
           </Animated.View>
         )}
@@ -250,9 +223,7 @@ export default function AuthShell({
           style={[
             styles.mainWrapper,
 
-            isTablet
-              ? styles.mainWrapperTablet
-              : styles.mainWrapperPhone,
+            isTablet ? styles.mainWrapperTablet : styles.mainWrapperPhone,
           ]}
         >
           {/* =====================================================
@@ -263,8 +234,7 @@ export default function AuthShell({
             style={[
               styles.aboveSheetWrapper,
 
-              isTablet &&
-                styles.aboveSheetWrapperTablet,
+              isTablet && styles.aboveSheetWrapperTablet,
 
               isTablet && {
                 width: panelWidth,
@@ -279,34 +249,24 @@ export default function AuthShell({
               ===================================================== */}
 
           <Animated.View
-            entering={FadeInUp
-              .duration(700)
-              .delay(80)
-              .springify()
-              .damping(18)}
+            entering={FadeInUp.duration(700).delay(80).springify().damping(18)}
             style={[
-             
               /*
                * PHONE
                * Full-width bottom sheet.
                */
-              !isTablet &&
-                styles.mainContentPhone,
+              !isTablet && styles.mainContentPhone,
 
               /*
                * TABLET
                * Centered constrained panel.
                */
-              isTablet &&
-                styles.mainContentTablet,
+              isTablet && styles.mainContentTablet,
 
               {
-                width: isTablet
-                  ? panelWidth
-                  : '100%',
+                width: isTablet ? panelWidth : "100%",
 
-                backgroundColor:
-                  theme.surface,
+                backgroundColor: theme.surface,
 
                 /*
                  * Phone needs the home-indicator
@@ -316,8 +276,7 @@ export default function AuthShell({
                  * Tablet also gets the inset so
                  * content remains comfortable.
                  */
-                paddingBottom:
-                  insets.bottom + 20,
+                paddingBottom: insets.bottom + 20,
               },
 
               isTablet &&
@@ -328,11 +287,10 @@ export default function AuthShell({
               isTablet &&
                 isLandscape && {
                   paddingTop: tabletVerticalPadding,
-                  paddingBottom:
-                    Math.max(
-                      insets.bottom + 20,
-                      tabletVerticalPadding
-                    ),
+                  paddingBottom: Math.max(
+                    insets.bottom + 20,
+                    tabletVerticalPadding,
+                  ),
                 },
             ]}
           >
@@ -358,16 +316,16 @@ const styles = StyleSheet.create({
      ============================================================= */
 
   topAmbientGlow: {
-    position: 'absolute',
+    position: "absolute",
     top: -60,
-    alignSelf: 'center',
+    alignSelf: "center",
     borderRadius: 9999,
   },
 
   bottomAmbientGlow: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -60,
-    alignSelf: 'center',
+    alignSelf: "center",
     borderRadius: 9999,
   },
 
@@ -376,7 +334,7 @@ const styles = StyleSheet.create({
      ============================================================= */
 
   backButtonRow: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -387,8 +345,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   /* =============================================================
@@ -397,7 +355,7 @@ const styles = StyleSheet.create({
 
   mainWrapper: {
     flex: 1,
-    width: '100%',
+    width: "100%",
   },
 
   /*
@@ -407,7 +365,7 @@ const styles = StyleSheet.create({
    * Auth surface is pushed to the bottom.
    */
   mainWrapperPhone: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
 
   /*
@@ -417,8 +375,8 @@ const styles = StyleSheet.create({
    * pushed against the bottom edge.
    */
   mainWrapperTablet: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   /* =============================================================
@@ -426,7 +384,7 @@ const styles = StyleSheet.create({
      ============================================================= */
 
   aboveSheetWrapper: {
-    width: '100%',
+    width: "100%",
   },
 
   aboveSheetWrapperTablet: {
@@ -434,7 +392,7 @@ const styles = StyleSheet.create({
      * Keeps the header aligned with the auth
      * panel instead of stretching across the iPad.
      */
-    alignSelf: 'center',
+    alignSelf: "center",
   },
 
   /* =============================================================
@@ -442,7 +400,7 @@ const styles = StyleSheet.create({
      ============================================================= */
 
   mainContentPhone: {
-    width: '100%',
+    width: "100%",
 
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -474,7 +432,7 @@ const styles = StyleSheet.create({
      * Give the panel some visual separation
      * from the gradient background.
      */
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 14,

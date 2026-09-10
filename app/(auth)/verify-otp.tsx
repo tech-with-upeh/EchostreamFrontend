@@ -1,38 +1,40 @@
-import AuthShell from '@/components/AuthShell';
-import { useAppTheme } from '@/hooks/use-theme-color';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import AuthShell from "@/components/AuthShell";
+import { useAppTheme } from "@/hooks/use-theme-color";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, {
-    Easing,
-    FadeIn,
-    FadeInDown,
-    FadeInUp,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
-    ZoomIn,
-} from 'react-native-reanimated';
-
+  Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+  ZoomIn,
+} from "react-native-reanimated";
 
 const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
-const OTP_LENGTH = 5;
+const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
 export default function VerifyOtpScreen() {
   const { theme } = useAppTheme();
   const router = useRouter();
-  const { email, flow } = useLocalSearchParams<{ email?: string; flow?: 'signup' | 'reset' }>();
+  const { email, flow } = useLocalSearchParams<{
+    email?: string;
+    flow?: "signup" | "reset";
+  }>();
 
-  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
-  const code = digits.join('');
+  const code = digits.join("");
   const isComplete = code.length === OTP_LENGTH;
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function VerifyOtpScreen() {
   }, [secondsLeft]);
 
   const handleChange = (value: string, index: number) => {
-    const clean = value.replace(/[^0-9]/g, '');
+    const clean = value.replace(/[^0-9]/g, "");
     const next = [...digits];
     next[index] = clean.slice(-1);
     setDigits(next);
@@ -52,7 +54,7 @@ export default function VerifyOtpScreen() {
   };
 
   const handleKeyPress = (key: string, index: number) => {
-    if (key === 'Backspace' && !digits[index] && index > 0) {
+    if (key === "Backspace" && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
@@ -65,14 +67,16 @@ export default function VerifyOtpScreen() {
 
   // --- CTA press + glow pulse ---
   const ctaScale = useSharedValue(1);
-  const ctaAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
+  const ctaAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ctaScale.value }],
+  }));
 
   const glowPulse = useSharedValue(0);
   useEffect(() => {
     glowPulse.value = withRepeat(
       withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
       -1,
-      true
+      true,
     );
   }, []);
   const glowStyle = useAnimatedStyle(() => ({
@@ -82,11 +86,11 @@ export default function VerifyOtpScreen() {
   const handleVerify = () => {
     if (!isComplete) return;
     // TODO: call your verify-OTP API
-    if (flow === 'reset') {
-      router.push({ pathname: '/reset-password', params: { email } });
+    if (flow === "reset") {
+      router.push({ pathname: "/reset-password", params: { email } });
     } else {
       // signup verified — send them into the app
-      router.replace('/pricing');
+      router.replace("/pricing");
     }
   };
 
@@ -100,7 +104,11 @@ export default function VerifyOtpScreen() {
           <View style={[styles.iconBadge, { backgroundColor: theme.primary }]}>
             <Ionicons name="checkmark" size={16} color={theme.buttonText} />
           </View>
-          <Ionicons name="key-outline" size={30} color={theme.onSurfaceVariant} />
+          <Ionicons
+            name="key-outline"
+            size={30}
+            color={theme.onSurfaceVariant}
+          />
         </Animated.View>
 
         <Animated.Text
@@ -113,11 +121,16 @@ export default function VerifyOtpScreen() {
           entering={FadeInDown.duration(500).delay(230)}
           style={[styles.subtitle, { color: theme.onSurfaceVariant }]}
         >
-          Enter the {OTP_LENGTH}-digit code we sent to{'\n'}
-          <Text style={{ color: theme.onSurface, fontWeight: '600' }}>{email ?? 'your email'}</Text>
+          Enter the {OTP_LENGTH}-digit code we sent to{"\n"}
+          <Text style={{ color: theme.onSurface, fontWeight: "600" }}>
+            {email ?? "your email"}
+          </Text>
         </Animated.Text>
 
-        <Animated.View entering={FadeInUp.duration(500).delay(300)} style={styles.otpRow}>
+        <Animated.View
+          entering={FadeInUp.duration(500).delay(300)}
+          style={styles.otpRow}
+        >
           {digits.map((digit, index) => (
             <OtpBox
               key={index}
@@ -125,7 +138,7 @@ export default function VerifyOtpScreen() {
               focused={focusedIndex === index}
               onFocus={() => setFocusedIndex(index)}
               onChangeText={(v) => handleChange(v, index)}
-              onKeyPressBackspace={() => handleKeyPress('Backspace', index)}
+              onKeyPressBackspace={() => handleKeyPress("Backspace", index)}
               inputRef={(r) => (inputRefs.current[index] = r)}
               autoFocus={index === 0}
               theme={theme}
@@ -135,7 +148,11 @@ export default function VerifyOtpScreen() {
 
         <Animated.View
           entering={FadeInUp.duration(500).delay(360)}
-          style={[styles.buttonWrapper, { shadowColor: theme.primary }, glowStyle]}
+          style={[
+            styles.buttonWrapper,
+            { shadowColor: theme.primary },
+            glowStyle,
+          ]}
         >
           <Pressable
             onPress={handleVerify}
@@ -145,23 +162,43 @@ export default function VerifyOtpScreen() {
             <Animated.View
               style={[
                 styles.button,
-                { backgroundColor: theme.primary, opacity: isComplete ? 1 : 0.5 },
+                {
+                  backgroundColor: theme.primary,
+                  opacity: isComplete ? 1 : 0.5,
+                },
                 ctaAnimStyle,
               ]}
             >
-              <Text style={[styles.buttonText, { color: theme.buttonText }]}>Verify</Text>
+              <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+                Verify
+              </Text>
             </Animated.View>
           </Pressable>
         </Animated.View>
 
-        <Animated.View entering={FadeIn.duration(400).delay(420)} style={styles.resendRow}>
+        <Animated.View
+          entering={FadeIn.duration(400).delay(420)}
+          style={styles.resendRow}
+        >
           {secondsLeft > 0 ? (
-            <Text style={[styles.resendText, { color: theme.onSurfaceVariant }]}>
-              Resend code in <Text style={{ color: theme.onSurface }}>0:{String(secondsLeft).padStart(2, '0')}</Text>
+            <Text
+              style={[styles.resendText, { color: theme.onSurfaceVariant }]}
+            >
+              Resend code in{" "}
+              <Text style={{ color: theme.onSurface }}>
+                0:{String(secondsLeft).padStart(2, "0")}
+              </Text>
             </Text>
           ) : (
             <Pressable onPress={handleResend}>
-              <Text style={[styles.resendText, { color: theme.primaryDim, fontWeight: '700' }]}>Resend Code</Text>
+              <Text
+                style={[
+                  styles.resendText,
+                  { color: theme.primaryDim, fontWeight: "700" },
+                ]}
+              >
+                Resend Code
+              </Text>
             </Pressable>
           )}
         </Animated.View>
@@ -178,7 +215,7 @@ interface OtpBoxProps {
   onKeyPressBackspace: () => void;
   inputRef: (r: TextInput | null) => void;
   autoFocus?: boolean;
-  theme: ReturnType<typeof useAppTheme>['theme'];
+  theme: ReturnType<typeof useAppTheme>["theme"];
 }
 
 function OtpBox({
@@ -192,7 +229,9 @@ function OtpBox({
   theme,
 }: OtpBoxProps) {
   const scale = useSharedValue(1);
-  const boxStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const boxStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   useEffect(() => {
     scale.value = withSpring(focused ? 1.06 : 1, SPRING);
@@ -214,7 +253,9 @@ function OtpBox({
         value={value}
         onChangeText={onChangeText}
         onFocus={onFocus}
-        onKeyPress={({ nativeEvent }) => nativeEvent.key === 'Backspace' && onKeyPressBackspace()}
+        onKeyPress={({ nativeEvent }) =>
+          nativeEvent.key === "Backspace" && onKeyPressBackspace()
+        }
         keyboardType="number-pad"
         maxLength={1}
         autoFocus={autoFocus}
@@ -227,7 +268,7 @@ function OtpBox({
 
 const styles = StyleSheet.create({
   centered: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 12,
     paddingBottom: 8,
   },
@@ -235,35 +276,35 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
   },
   iconBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -2,
     right: -2,
     width: 22,
     height: 22,
     borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1,
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
     marginBottom: 28,
     paddingHorizontal: 12,
   },
   otpRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 28,
   },
@@ -272,18 +313,18 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 14,
     borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   otpInput: {
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
+    width: "100%",
+    height: "100%",
+    textAlign: "center",
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   buttonWrapper: {
-    width: '100%',
+    width: "100%",
     borderRadius: 9999,
     shadowOffset: { width: 0, height: 10 },
     shadowRadius: 20,
@@ -293,12 +334,12 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 16,
     borderRadius: 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
   resendRow: {
