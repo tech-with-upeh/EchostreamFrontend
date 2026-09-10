@@ -16,14 +16,14 @@ let refreshPromise: Promise<TokenResponse> | null = null;
 export function setAuthTokens(tokens: TokenResponse) {
   accessToken = tokens.access_token;
   refreshToken = tokens.refresh_token;
+  void Promise.all([
+    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.access_token),
+    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refresh_token),
+  ]);
 }
 
 export async function persistAuthTokens(tokens: TokenResponse) {
   setAuthTokens(tokens);
-  await Promise.all([
-    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.access_token),
-    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refresh_token),
-  ]);
 }
 
 export async function restoreAuthSession(): Promise<boolean> {
@@ -103,9 +103,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return await rawRequest<T>(path, options, accessToken);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401 || !refreshToken || path === '/refresh' || path === '/login') throw error;
-    if (!refreshPromise) {
-      refreshPromise = refreshSession(refreshToken).finally(() => { refreshPromise = null; });
-    }
+    if (!refreshPromise) refreshPromise = refreshSession(refreshToken).finally(() => { refreshPromise = null; });
     try {
       const tokens = await refreshPromise;
       await persistAuthTokens(tokens);
