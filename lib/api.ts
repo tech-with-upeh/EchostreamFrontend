@@ -1,12 +1,20 @@
-import * as SecureStore from 'expo-secure-store';
+import { AuthResponse } from "@/lib/schema";
+import * as SecureStore from "expo-secure-store";
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.replace(/\/$/, '');
-const ACCESS_TOKEN_KEY = 'echostream.access_token';
-const REFRESH_TOKEN_KEY = 'echostream.refresh_token';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.replace(/\/$/, "");
+const ACCESS_TOKEN_KEY = "echostream.access_token";
+const REFRESH_TOKEN_KEY = "echostream.refresh_token";
 
-if (!BACKEND_URL) console.warn('EXPO_PUBLIC_BACKEND_URL is not configured. Add it to your .env file.');
+if (!BACKEND_URL)
+  console.warn(
+    "EXPO_PUBLIC_BACKEND_URL is not configured. Add it to your .env file.",
+  );
 
-export type TokenResponse = { access_token: string; refresh_token: string; token_type?: string };
+export type TokenResponse = {
+  access_token: string;
+  refresh_token: string;
+  token_type?: string;
+};
 export type RegisterResponse = Record<string, unknown>;
 
 let accessToken: string | null = null;
@@ -34,11 +42,15 @@ export async function restoreAuthSession(): Promise<boolean> {
     ]);
     if (!storedRefresh) return false;
 
-    if (storedAccess) setAuthTokens({ access_token: storedAccess, refresh_token: storedRefresh });
+    if (storedAccess)
+      setAuthTokens({
+        access_token: storedAccess,
+        refresh_token: storedRefresh,
+      });
 
     if (storedAccess) {
       try {
-        await request('/users/me');
+        await request("/users/me");
         return true;
       } catch (error) {
         if (!(error instanceof ApiError) || error.status !== 401) throw error;
@@ -59,8 +71,12 @@ export async function restoreAuthSession(): Promise<boolean> {
   }
 }
 
-export function getAccessToken() { return accessToken; }
-export function getRefreshToken() { return refreshToken; }
+export function getAccessToken() {
+  return accessToken;
+}
+export function getRefreshToken() {
+  return refreshToken;
+}
 
 export async function clearPersistedAuthTokens() {
   accessToken = null;
@@ -77,22 +93,47 @@ export function clearAuthTokens() {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) { super(message); this.name = 'ApiError'; this.status = status; }
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
 }
 
-async function rawRequest<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
-  if (!BACKEND_URL) throw new ApiError('Backend URL is not configured.', 0);
+async function rawRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string | null,
+): Promise<T> {
+  if (!BACKEND_URL) throw new ApiError("Backend URL is not configured.", 0);
   let response: Response;
   try {
     response = await fetch(`${BACKEND_URL}${path}`, {
       ...options,
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers ?? {}) },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
     });
-  } catch { throw new ApiError('Unable to reach EchoStream. Check your internet connection.', 0); }
-  const contentType = response.headers.get('content-type') ?? '';
-  const body = contentType.includes('application/json') ? await response.json().catch(() => null) : await response.text().catch(() => '');
+  } catch {
+    throw new ApiError(
+      "Unable to reach EchoStream. Check your internet connection.",
+      0,
+    );
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => "");
   if (!response.ok) {
-    const detail = body && typeof body === 'object' && 'detail' in body ? String((body as { detail?: unknown }).detail) : typeof body === 'string' && body ? body : 'Something went wrong. Please try again.';
+    const detail =
+      body && typeof body === "object" && "detail" in body
+        ? String((body as { detail?: unknown }).detail)
+        : typeof body === "string" && body
+          ? body
+          : "Something went wrong. Please try again.";
     throw new ApiError(detail, response.status);
   }
   return body as T;
@@ -102,8 +143,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   try {
     return await rawRequest<T>(path, options, accessToken);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401 || !refreshToken || path === '/refresh' || path === '/login') throw error;
-    if (!refreshPromise) refreshPromise = refreshSession(refreshToken).finally(() => { refreshPromise = null; });
+    if (
+      !(error instanceof ApiError) ||
+      error.status !== 401 ||
+      !refreshToken ||
+      path === "/refresh" ||
+      path === "/login"
+    )
+      throw error;
+    if (!refreshPromise)
+      refreshPromise = refreshSession(refreshToken).finally(() => {
+        refreshPromise = null;
+      });
     try {
       const tokens = await refreshPromise;
       await persistAuthTokens(tokens);
@@ -115,24 +166,61 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
-export function login(email: string, password: string) { return request<TokenResponse>('/login', { method: 'POST', body: JSON.stringify({ email, password }) }); }
+export function login(email: string, password: string) {
+  return request<TokenResponse>("/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
 
-export function register(first_name: string, last_name: string, email: string, password: string) {
-  return request<RegisterResponse>('/register', { method: 'POST', body: JSON.stringify({ first_name, last_name, email, password }) });
+export function register(
+  first_name: string,
+  last_name: string,
+  email: string,
+  password: string,
+) {
+  return request<RegisterResponse>("/register", {
+    method: "POST",
+    body: JSON.stringify({ first_name, last_name, email, password }),
+  });
 }
 
 export function verifyEmailCode(email: string, code: string) {
-  return request<TokenResponse & { status: string; message: string }>('/verify-email-code', { method: 'POST', body: JSON.stringify({ email, code }) });
+  return request<TokenResponse & AuthResponse>("/verify-email-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
 }
 
 export function resendVerification(email: string) {
-  return request<{ status: string; message: string }>('/resend-verification', { method: 'POST', body: JSON.stringify({ email }) });
+  return request<AuthResponse>("/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function ForgotPassword(email: string) {
+  return request<AuthResponse>("/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function ResetPassword(token: string, email: string, passwd: string) {
+  return request<TokenResponse & AuthResponse>("/reset-pass-code", {
+    method: "POST",
+    body: JSON.stringify({ token: token, email: email, password: passwd }),
+  });
 }
 
 export function refreshSession(token: string) {
-  return rawRequest<TokenResponse>('/refresh', { method: 'POST', body: JSON.stringify({ refresh_token: token }) }, null);
+  return rawRequest<TokenResponse>(
+    "/refresh",
+    { method: "POST", body: JSON.stringify({ refresh_token: token }) },
+    null,
+  );
 }
 
 export function logout() {
-  return request<{ status: string; message: string }>('/logout', { method: 'POST' });
+  return request<AuthResponse>("/logout", { method: "POST" });
 }

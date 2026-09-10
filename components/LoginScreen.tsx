@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -436,13 +437,13 @@ export default function LoginScreen() {
               ]}
             >
               <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-                {isSubmitting
-                  ? isLogin
-                    ? "Logging in..."
-                    : "Creating account..."
-                  : isLogin
-                    ? "Login"
-                    : "Create Account"}
+                {isSubmitting ? (
+                  <ActivityIndicator color={theme.onSurface} />
+                ) : isLogin ? (
+                  "Login"
+                ) : (
+                  "Create Account"
+                )}
               </Text>
             </Animated.View>
           </Pressable>

@@ -1,9 +1,18 @@
 import AuthShell from "@/components/AuthShell";
 import { useAppTheme } from "@/hooks/use-theme-color";
+import { resendVerification, setAuthTokens, verifyEmailCode } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -33,6 +42,7 @@ export default function VerifyOtpScreen() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputRefs = useRef<Array<TextInput | null>>([]);
+  const [isLoading, setisLoading] = useState(false);
 
   const code = digits.join("");
   const isComplete = code.length === OTP_LENGTH;
@@ -45,6 +55,28 @@ export default function VerifyOtpScreen() {
 
   const handleChange = (value: string, index: number) => {
     const clean = value.replace(/[^0-9]/g, "");
+
+    // Multi-character input (paste, or fast typing that lands >1 char at once):
+    // spread the digits across boxes starting at the current index.
+    if (clean.length > 1) {
+      const next = [...digits];
+      let lastFilledIndex = index;
+      for (let i = 0; i < clean.length && index + i < OTP_LENGTH; i++) {
+        next[index + i] = clean[i];
+        lastFilledIndex = index + i;
+      }
+      setDigits(next);
+
+      const nextEmptyIndex = lastFilledIndex + 1;
+      if (nextEmptyIndex < OTP_LENGTH) {
+        inputRefs.current[nextEmptyIndex]?.focus();
+      } else {
+        inputRefs.current[lastFilledIndex]?.blur();
+      }
+      return;
+    }
+
+    // Single character — original behavior.
     const next = [...digits];
     next[index] = clean.slice(-1);
     setDigits(next);
@@ -59,10 +91,27 @@ export default function VerifyOtpScreen() {
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (secondsLeft > 0) return;
-    // TODO: call your resend-OTP API
-    setSecondsLeft(RESEND_SECONDS);
+    if (!email) {
+      return Alert.alert(
+        "Invalid email",
+        "Please enter a valid email address.",
+      );
+    }
+    try {
+      const req = await resendVerification(email || "");
+      if (req.status != "success") {
+        return Alert.alert(
+          "Invalid email",
+          "Please enter a valid email address.",
+        );
+      }
+    } catch (error) {
+      return Alert.alert("Unexpected Error", `${error}`);
+    } finally {
+      setSecondsLeft(RESEND_SECONDS);
+    }
   };
 
   // --- CTA press + glow pulse ---
@@ -83,13 +132,20 @@ export default function VerifyOtpScreen() {
     shadowOpacity: 0.22 + glowPulse.value * 0.28,
   }));
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!isComplete) return;
-    // TODO: call your verify-OTP API
+    if (!/^\S+@\S+\.\S+$/.test(email || ""))
+      return Alert.alert(
+        "Invalid email",
+        "Please enter a valid email address.",
+      );
     if (flow === "reset") {
-      router.push({ pathname: "/reset-password", params: { email } });
+      router.push({ pathname: "/reset-password", params: { email, code } });
     } else {
-      // signup verified — send them into the app
+      const tokens = await verifyEmailCode(email || "", code);
+      if (!tokens.access_token || !tokens.refresh_token)
+        throw new Error("The server returned an invalid login response.");
+      setAuthTokens(tokens);
       router.replace("/pricing");
     }
   };
@@ -169,9 +225,13 @@ export default function VerifyOtpScreen() {
                 ctaAnimStyle,
               ]}
             >
-              <Text style={[styles.buttonText, { color: theme.buttonText }]}>
-                Verify
-              </Text>
+              {isLoading ? (
+                <ActivityIndicator color={theme.onSurface} />
+              ) : (
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+                  Verify
+                </Text>
+              )}
             </Animated.View>
           </Pressable>
         </Animated.View>
