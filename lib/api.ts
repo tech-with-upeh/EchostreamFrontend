@@ -179,6 +179,13 @@ export function login(email: string, password: string) {
   });
 }
 
+export function loginWithGoogle(idToken: string) {
+  return rawRequest<TokenResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ id_token: idToken }),
+  });
+}
+
 export function register(
   first_name: string,
   last_name: string,
