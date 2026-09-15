@@ -1,5 +1,6 @@
 import { useAppTheme } from "@/hooks/use-theme-color";
-import { resendVerification, setAuthTokens, verifyEmailCode } from "@/lib/api";
+import { useAuthStore } from "@/store/auth.store";
+import { resendVerification, verifyEmailCode } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,6 +12,7 @@ const RESEND_SECONDS = 60;
 export default function VerifyOtpScreen() {
   const { theme } = useAppTheme();
   const router = useRouter();
+  const setSession = useAuthStore((state) => state.setSession);
   const params = useLocalSearchParams<{ email?: string }>();
   const email = typeof params.email === "string" ? params.email : "";
   const [code, setCode] = useState("");
@@ -42,7 +44,7 @@ export default function VerifyOtpScreen() {
       setVerifying(true);
       const result = await verifyEmailCode(email, normalizedCode);
       if (!result.access_token || !result.refresh_token) throw new Error("Verification succeeded but the server did not return a session.");
-      setAuthTokens(result);
+      await setSession(result);
       router.replace("/(dashboard)");
     } catch (error) {
       Alert.alert("Verification failed", error instanceof Error ? error.message : "Unable to verify your email. Please try again.");
