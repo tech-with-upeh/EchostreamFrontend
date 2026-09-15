@@ -1,4 +1,10 @@
-import { AuthResponse } from "@/lib/schema";
+import {
+  AuthResponse,
+  LiveStatus,
+  Prefrence,
+  UserProfile,
+  VoicesResponse,
+} from "@/lib/schema";
 import * as SecureStore from "expo-secure-store";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.replace(/\/$/, "");
@@ -223,4 +229,25 @@ export function refreshSession(token: string) {
 
 export function logout() {
   return request<AuthResponse>("/logout", { method: "POST" });
+}
+
+//LIVE
+
+export function getLiveStatus() {
+  return request<LiveStatus>("/v1/live/status");
+}
+
+//PREFRENCES
+export function getPrefrence() {
+  return request<Prefrence>("/v1/preferences");
+}
+
+// DASHBOARD
+
+export function getCurrentUser() {
+  return request<UserProfile>("/users/me");
+}
+
+export function getVoices() {
+  return request<VoicesResponse>("/v1/tts/voices");
 }

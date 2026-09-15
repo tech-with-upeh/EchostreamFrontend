@@ -33,6 +33,10 @@ import AuthShell from "./AuthShell";
 const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
 type AuthTab = "login" | "register";
 
+import {
+  GoogleSignin
+} from "@react-native-google-signin/google-signin";
+
 export default function LoginScreen() {
   const { theme } = useAppTheme();
   const router = useRouter();
@@ -85,6 +89,47 @@ export default function LoginScreen() {
   const glowStyle = useAnimatedStyle(() => ({
     shadowOpacity: 0.22 + glowPulse.value * 0.28,
   }));
+
+  async function handleGoogleSignIn() {
+    try {
+      await GoogleSignin.hasPlayServices(); // Android only, no-op on iOS
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+
+      if (!idToken) {
+        throw new Error("No idToken returned from Google");
+      }
+
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/auth/google`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token: idToken }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail ?? "Google sign-in failed");
+      }
+
+      const token = await res.json();
+
+      await setAuthTokens(token);
+
+      router.replace("/(dashboard)");
+    } catch (error: any) {
+      if (error.code === "SIGN_IN_CANCELLED") return; // user backed out, not an error
+      console.error("Google sign-in error:", error);
+      Alert.alert(
+        "Login failed",
+        error instanceof Error
+          ? error.message
+          : "Unable to log in. Please try again.",
+      );
+    }
+  }
 
   const handleLogin = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -468,6 +513,7 @@ export default function LoginScreen() {
             style={{ flex: 1 }}
           >
             <Pressable
+              onPress={handleGoogleSignIn}
               style={[
                 styles.socialButton,
                 {
@@ -483,6 +529,11 @@ export default function LoginScreen() {
                 Google
               </Text>
             </Pressable>
+            {/* <GoogleSigninButton
+              size={GoogleSigninButton.Size.}
+              color={GoogleSigninButton.Color.Dark}
+           
+            /> */}
           </Animated.View>
           <Animated.View
             entering={FadeInUp.duration(450).delay(540)}
