@@ -1,6 +1,6 @@
 import { useAppTheme } from "@/hooks/use-theme-color";
-import { useAuthStore } from "@/store/auth.store";
 import { resendVerification, verifyEmailCode } from "@/lib/api";
+import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -12,18 +12,20 @@ const RESEND_SECONDS = 60;
 export default function VerifyOtpScreen() {
   const { theme } = useAppTheme();
   const router = useRouter();
-  const setSession = useAuthStore((state) => state.setSession);
-  const params = useLocalSearchParams<{ email?: string }>();
-  const email = typeof params.email === "string" ? params.email : "";
+  const verifyEmail = useAuthStore((state) => state.verifyEmail);
+  const resendVerificationCode = useAuthStore((state) => state.resendVerification);
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputRef = useRef<TextInput>(null);
+  const params = useLocalSearchParams<{ email?: string; flow?: string }>();
+  const email = typeof params.email === "string" ? params.email : "";
+  const flow = typeof params.flow === "string" ? params.flow : "signup";
 
   useEffect(() => {
     if (!email) {
-      Alert.alert("Missing email", "Please start registration again.");
+      Alert.alert("Missing email", "Please start again.");
       router.replace("/login");
     }
   }, [email, router]);
@@ -42,9 +44,11 @@ export default function VerifyOtpScreen() {
     }
     try {
       setVerifying(true);
-      const result = await verifyEmailCode(email, normalizedCode);
-      if (!result.access_token || !result.refresh_token) throw new Error("Verification succeeded but the server did not return a session.");
-      await setSession(result);
+      if (flow === "reset") {
+        router.push({ pathname: "/reset-password", params: { email, code: normalizedCode } });
+        return;
+      }
+      await verifyEmail(email, normalizedCode);
       router.replace("/(dashboard)");
     } catch (error) {
       Alert.alert("Verification failed", error instanceof Error ? error.message : "Unable to verify your email. Please try again.");
@@ -57,7 +61,12 @@ export default function VerifyOtpScreen() {
     if (resending || secondsLeft > 0) return;
     try {
       setResending(true);
-      await resendVerification(email);
+      if (flow === "reset") {
+        // Reset-code resend is handled by the forgot-password endpoint.
+        // This screen only exposes the signup verification resend action.
+        throw new Error("Please start the password reset flow again to request a new code.");
+      }
+      await resendVerificationCode(email);
       setSecondsLeft(RESEND_SECONDS);
       setCode("");
       Alert.alert("Code sent", "A new verification code has been sent to your email.");
@@ -82,32 +91,16 @@ export default function VerifyOtpScreen() {
       <View style={styles.content}>
         <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>Verification code</Text>
         <Pressable onPress={() => inputRef.current?.focus()} style={[styles.codeBox, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}>
-          <TextInput
-            ref={inputRef}
-            value={code}
-            onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-            textContentType="oneTimeCode"
-            autoComplete="sms-otp"
-            style={[styles.codeInput, { color: theme.onSurface }]}
-            placeholder="000000"
-            placeholderTextColor={theme.onSurfaceVariant}
-          />
+          <TextInput ref={inputRef} value={code} onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} autoFocus textContentType="oneTimeCode" autoComplete="sms-otp" style={[styles.codeInput, { color: theme.onSurface }]} placeholder="000000" placeholderTextColor={theme.onSurfaceVariant} />
         </Pressable>
         <Text style={[styles.helper, { color: theme.onSurfaceVariant }]}>Check your inbox and spam folder if you don't see it.</Text>
-
         <Pressable disabled={verifying} onPress={handleVerify} style={[styles.button, { backgroundColor: theme.primary, opacity: verifying ? 0.65 : 1 }]}>
           <Text style={[styles.buttonText, { color: theme.buttonText }]}>{verifying ? "Verifying..." : "Verify Email"}</Text>
         </Pressable>
-
         <View style={styles.resendRow}>
           <Text style={[styles.resendText, { color: theme.onSurfaceVariant }]}>Didn't receive a code?</Text>
           <Pressable disabled={resending || secondsLeft > 0} onPress={handleResend}>
-            <Text style={[styles.resendButton, { color: secondsLeft > 0 ? theme.onSurfaceVariant : theme.primary }]}>
-              {resending ? "Sending..." : secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
-            </Text>
+            <Text style={[styles.resendButton, { color: secondsLeft > 0 ? theme.onSurfaceVariant : theme.primary }]}>{resending ? "Sending..." : secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}</Text>
           </Pressable>
         </View>
       </View>
