@@ -1,13 +1,20 @@
 import { create } from "zustand";
 import {
   clearAuthTokens,
+  ForgotPassword,
   login as apiLogin,
   loginWithGoogle as apiLoginWithGoogle,
   logout as apiLogout,
+  register as apiRegister,
+  ResetPassword,
+  resendVerification,
   persistAuthTokens,
   restoreAuthSession,
+  verifyEmailCode,
+  type RegisterResponse,
   type TokenResponse,
 } from "@/lib/api";
+import type { AuthResponse } from "@/lib/schema";
 
 type AuthState = {
   isInitialized: boolean;
@@ -18,6 +25,16 @@ type AuthState = {
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<TokenResponse>;
   loginWithGoogle: (idToken: string) => Promise<TokenResponse>;
+  register: (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+  ) => Promise<RegisterResponse>;
+  verifyEmail: (email: string, code: string) => Promise<TokenResponse & AuthResponse>;
+  resendVerification: (email: string) => Promise<AuthResponse>;
+  forgotPassword: (email: string) => Promise<AuthResponse>;
+  resetPassword: (token: string, email: string, password: string) => Promise<TokenResponse & AuthResponse>;
   setSession: (tokens: TokenResponse) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -33,10 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const authenticated = await restoreAuthSession();
-      set({
-        isAuthenticated: authenticated,
-        isInitialized: true,
-      });
+      set({ isAuthenticated: authenticated, isInitialized: true });
     } catch (error) {
       set({
         isAuthenticated: false,
@@ -56,8 +70,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to log in.";
-      set({ error: message, isAuthenticated: false });
+      set({
+        error: error instanceof Error ? error.message : "Unable to log in.",
+        isAuthenticated: false,
+      });
       throw error;
     } finally {
       set({ isLoading: false });
@@ -72,8 +88,50 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to log in with Google.";
-      set({ error: message, isAuthenticated: false });
+      set({
+        error: error instanceof Error ? error.message : "Unable to log in with Google.",
+        isAuthenticated: false,
+      });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  register: (firstName, lastName, email, password) =>
+    apiRegister(firstName, lastName, email, password),
+
+  verifyEmail: async (email, code) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await verifyEmailCode(email, code);
+      if (!result.access_token || !result.refresh_token)
+        throw new Error("Verification succeeded but the server did not return a session.");
+      await persistAuthTokens(result);
+      set({ isAuthenticated: true });
+      return result;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Unable to verify your email." });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  resendVerification: (email) => resendVerification(email),
+  forgotPassword: (email) => ForgotPassword(email),
+
+  resetPassword: async (token, email, password) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await ResetPassword(token, email, password);
+      if (!result.access_token || !result.refresh_token)
+        throw new Error("The server returned an invalid login response.");
+      await persistAuthTokens(result);
+      set({ isAuthenticated: true });
+      return result;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Unable to reset your password." });
       throw error;
     } finally {
       set({ isLoading: false });
