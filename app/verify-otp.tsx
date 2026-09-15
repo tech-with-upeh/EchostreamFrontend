@@ -1,5 +1,4 @@
 import { useAppTheme } from "@/hooks/use-theme-color";
-import { resendVerification, verifyEmailCode } from "@/lib/api";
 import { useAuthStore } from "@/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -42,12 +41,12 @@ export default function VerifyOtpScreen() {
       Alert.alert("Invalid code", "Enter the 6-digit verification code sent to your email.");
       return;
     }
+    if (flow === "reset") {
+      router.push({ pathname: "/reset-password", params: { email, code: normalizedCode } });
+      return;
+    }
     try {
       setVerifying(true);
-      if (flow === "reset") {
-        router.push({ pathname: "/reset-password", params: { email, code: normalizedCode } });
-        return;
-      }
       await verifyEmail(email, normalizedCode);
       router.replace("/(dashboard)");
     } catch (error) {
@@ -62,8 +61,6 @@ export default function VerifyOtpScreen() {
     try {
       setResending(true);
       if (flow === "reset") {
-        // Reset-code resend is handled by the forgot-password endpoint.
-        // This screen only exposes the signup verification resend action.
         throw new Error("Please start the password reset flow again to request a new code.");
       }
       await resendVerificationCode(email);
