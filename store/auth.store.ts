@@ -7,7 +7,7 @@ import {
   logout as apiLogout,
   register as apiRegister,
   ResetPassword,
-  resendVerification,
+  resendVerification as apiResendVerification,
   persistAuthTokens,
   restoreAuthSession,
   verifyEmailCode,
@@ -70,10 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "Unable to log in.",
-        isAuthenticated: false,
-      });
+      set({ error: error instanceof Error ? error.message : "Unable to log in.", isAuthenticated: false });
       throw error;
     } finally {
       set({ isLoading: false });
@@ -88,18 +85,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "Unable to log in with Google.",
-        isAuthenticated: false,
-      });
+      set({ error: error instanceof Error ? error.message : "Unable to log in with Google.", isAuthenticated: false });
       throw error;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  register: (firstName, lastName, email, password) =>
-    apiRegister(firstName, lastName, email, password),
+  register: async (firstName, lastName, email, password) => {
+    set({ isLoading: true, error: null });
+    try {
+      return await apiRegister(firstName, lastName, email, password);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Unable to create your account." });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 
   verifyEmail: async (email, code) => {
     set({ isLoading: true, error: null });
@@ -118,8 +121,29 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  resendVerification: (email) => resendVerification(email),
-  forgotPassword: (email) => ForgotPassword(email),
+  resendVerification: async (email) => {
+    set({ isLoading: true, error: null });
+    try {
+      return await apiResendVerification(email);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Unable to resend the verification code." });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  forgotPassword: async (email) => {
+    set({ isLoading: true, error: null });
+    try {
+      return await ForgotPassword(email);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Unable to send the reset code." });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 
   resetPassword: async (token, email, password) => {
     set({ isLoading: true, error: null });
