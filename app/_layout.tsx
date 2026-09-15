@@ -1,5 +1,6 @@
 // app/_layout.tsx
 import { useAuthStore } from "@/store/auth.store";
+import { useUserStore } from "@/store/user.store";
 import { Geist_500Medium } from "@expo-google-fonts/geist";
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
@@ -13,7 +14,20 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function AuthRedirect() {
   const router = useRouter();
   const segments = useSegments();
-  const { isInitialized, isAuthenticated } = useAuthStore();
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const fetchUser = useUserStore((state) => state.fetchUser);
+  const clearUser = useUserStore((state) => state.clearUser);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    if (isAuthenticated) {
+      void fetchUser().catch(() => {});
+    } else {
+      clearUser();
+    }
+  }, [isInitialized, isAuthenticated, fetchUser, clearUser]);
 
   useEffect(() => {
     if (!isInitialized) return;
