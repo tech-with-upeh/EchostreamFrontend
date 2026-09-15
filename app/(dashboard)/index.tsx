@@ -3,45 +3,16 @@ import { useAppTheme } from "@/hooks/use-theme-color";
 import { getLiveStatus } from "@/lib/api";
 import type { LiveStatus } from "@/lib/schema";
 import { useUserStore } from "@/store/user.store";
-import {
-  FontAwesome5,
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-  Dimensions,
-  Image,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import Animated, {
-  cancelAnimation,
-  Easing,
-  FadeInDown,
-  FadeInUp,
-  FadeOut,
-  Layout,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+import { Dimensions, Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import Animated, { cancelAnimation, Easing, FadeInDown, FadeInUp, FadeOut, Layout, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
-
 const SELECTED_VOICE = { name: "Aria", description: "Warm & Clear · Female" };
 const PREFERENCES = { speed: "1.0x", pitch: "Normal", language: "English (US)" };
 const VOICES = [
@@ -59,16 +30,13 @@ export default function HomeScreen() {
   const [isActive, setIsActive] = useState(false);
   const [favorited, setFavorited] = useState<Record<string, boolean>>({});
   const [tiktokUsername, setTiktokUsername] = useState<string | null>(null);
-  const hasConnectedTikTok = !!tiktokUsername;
-  const toggleFavorite = (id: string) => setFavorited((f) => ({ ...f, [id]: !f[id] }));
   const [Livestatus, setLivestatus] = useState<LiveStatus | null>(null);
   const [loadingLiveStatus, setLoadingLiveStatus] = useState(true);
+  const hasConnectedTikTok = !!tiktokUsername;
+  const toggleFavorite = (id: string) => setFavorited((f) => ({ ...f, [id]: !f[id] }));
 
   useEffect(() => {
-    getLiveStatus()
-      .then(setLivestatus)
-      .catch((err) => console.error("Failed to load live status", err))
-      .finally(() => setLoadingLiveStatus(false));
+    getLiveStatus().then(setLivestatus).catch((err) => console.error("Failed to load live status", err)).finally(() => setLoadingLiveStatus(false));
   }, []);
 
   useEffect(() => {
@@ -88,12 +56,8 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
           <Pressable onPress={() => router.push("/settings")} style={styles.avatarWrapper}>
-            <View style={[styles.avatar, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
-              <Ionicons name="person" size={26} color={theme.onSurfaceVariant} />
-            </View>
-            <View style={[styles.badge, { backgroundColor: theme.primary, borderColor: theme.background }]}>
-              <Ionicons name="settings" size={11} color={theme.buttonText} />
-            </View>
+            <View style={[styles.avatar, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}><Ionicons name="person" size={26} color={theme.onSurfaceVariant} /></View>
+            <View style={[styles.badge, { backgroundColor: theme.primary, borderColor: theme.background }]}><Ionicons name="settings" size={11} color={theme.buttonText} /></View>
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.greeting, { color: theme.onSurfaceVariant }]}>Welcome back</Text>
@@ -116,7 +80,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {user?.plan == "starter" ? (
+        {user?.plan == "starter" && (
           <Animated.View entering={FadeInUp.duration(500).delay(180)} layout={Layout.springify()}>
             <Pressable onPress={() => router.push("/pricing")}>
               <LinearGradient colors={[theme.primary, theme.primaryDim]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.proCard}>
@@ -127,7 +91,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </Pressable>
           </Animated.View>
-        ) : ""}
+        )}
 
         <View style={styles.featureGrid}>
           <Animated.View entering={FadeInUp.duration(500).delay(240)} style={styles.featureCol}>
@@ -182,34 +146,91 @@ function TikTokConnectForm({ onConnected, theme }: { onConnected: (username: str
 }
 
 function FeatureCard({ icon, title, subtitle, actionLabel, onPress, theme }: { icon: React.ReactNode; title: string; subtitle: string; actionLabel: string; onPress: () => void; theme: ReturnType<typeof useAppTheme>["theme"] }) {
-  return (
-    <View style={[styles.featureCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
-      <View style={[styles.featureIcon, { backgroundColor: theme.surface }]}>{icon}</View>
-      <Text style={[styles.featureTitle, { color: theme.onSurface }]}>{title}</Text>
-      <Text style={[styles.featureSubtitle, { color: theme.onSurfaceVariant }]}>{subtitle}</Text>
-      <Pressable onPress={onPress} style={[styles.featureAction, { backgroundColor: theme.surface }]}><Text style={[styles.featureActionText, { color: theme.primary }]}>{actionLabel}</Text></Pressable>
-    </View>
-  );
+  return <View style={[styles.featureCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
+    <View style={[styles.featureIcon, { backgroundColor: theme.surface }]}>{icon}</View>
+    <Text style={[styles.featureTitle, { color: theme.onSurface }]}>{title}</Text>
+    <Text style={[styles.featureSubtitle, { color: theme.onSurfaceVariant }]} numberOfLines={2}>{subtitle}</Text>
+    <Pressable onPress={onPress} style={[styles.featureAction, { backgroundColor: theme.primary }]}><Text style={[styles.featureActionText, { color: theme.buttonText }]}>{actionLabel}</Text></Pressable>
+  </View>;
 }
 
 function VoiceCard({ voice, favorited, onToggleFavorite, theme }: { voice: (typeof VOICES)[number]; favorited: boolean; onToggleFavorite: () => void; theme: ReturnType<typeof useAppTheme>["theme"] }) {
-  return (
-    <View style={[styles.voiceCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
-      <Image source={{ uri: voice.avatar }} style={styles.voiceAvatar} />
-      <Pressable onPress={onToggleFavorite} style={styles.favoriteButton}><Ionicons name={favorited ? "heart" : "heart-outline"} size={18} color={favorited ? theme.primary : theme.onSurfaceVariant} /></Pressable>
-      <Text style={[styles.voiceName, { color: theme.onSurface }]}>{voice.name}</Text>
-      <Text style={[styles.voiceMeta, { color: theme.onSurfaceVariant }]}>{voice.flag} {voice.style} · {voice.gender}</Text>
-    </View>
-  );
+  return <View style={[styles.voiceCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
+    <Pressable onPress={onToggleFavorite} style={[styles.favoriteButton, { backgroundColor: theme.surface }]} hitSlop={6}><Ionicons name={favorited ? "heart" : "heart-outline"} size={14} color={favorited ? theme.primary : theme.onSurfaceVariant} /></Pressable>
+    <Image source={{ uri: voice.avatar }} style={styles.voiceAvatar} />
+    <View style={styles.voiceNameRow}><Text style={[styles.voiceName, { color: theme.onSurface }]}>{voice.name} ({voice.gender})</Text><Text style={styles.voiceFlag}>{voice.flag}</Text></View>
+    <Text style={[styles.voiceMeta, { color: theme.onSurfaceVariant }]}>{voice.style}</Text>
+    <View style={styles.voiceFooter}><Pressable style={[styles.playButton, { borderColor: theme.outline }]}><Ionicons name="play" size={13} color={theme.onSurface} /></Pressable><Pressable style={[styles.selectButton, { backgroundColor: theme.primary }]}><Text style={[styles.selectButtonText, { color: theme.buttonText }]}>Select</Text></Pressable></View>
+  </View>;
 }
 
 function SoundWave({ active, theme }: { active: boolean; theme: ReturnType<typeof useAppTheme>["theme"] }) {
   const progress = useSharedValue(0);
   useEffect(() => { if (active) progress.value = withRepeat(withSequence(withTiming(1, { duration: 650, easing: Easing.inOut(Easing.ease) }), withTiming(0, { duration: 650, easing: Easing.inOut(Easing.ease) })), -1, false); else { cancelAnimation(progress); progress.value = withTiming(0, { duration: 200 }); } return () => cancelAnimation(progress); }, [active]);
-  const bars = Array.from({ length: 24 });
-  return <View style={styles.waveContainer}>{bars.map((_, i) => <Animated.View key={i} style={[styles.waveBar, { backgroundColor: theme.primary, height: 18 + ((i % 5) * 10), opacity: active ? 0.55 + ((i % 4) * 0.1) : 0.25 }]} />)}</View>;
+  return <View style={styles.waveContainer}>{Array.from({ length: 24 }).map((_, i) => <Animated.View key={i} style={[styles.waveBar, { backgroundColor: theme.primary, height: 18 + ((i % 5) * 10), opacity: active ? 0.55 + ((i % 4) * 0.1) : 0.25 }]} />)}</View>;
 }
 
 function StartButton({ isActive, onToggle, theme }: { isActive: boolean; onToggle: () => void; theme: ReturnType<typeof useAppTheme>["theme"] }) {
   return <Pressable onPress={onToggle} style={[styles.startButton, { backgroundColor: isActive ? theme.surfaceVariant : theme.primary, borderColor: theme.outline }]}><Ionicons name={isActive ? "stop" : "play"} size={20} color={isActive ? theme.primary : theme.buttonText} /><Text style={[styles.startButtonText, { color: isActive ? theme.onSurface : theme.buttonText }]}>{isActive ? "Stop" : "Start"}</Text></Pressable>;
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  topAmbientGlow: { position: "absolute", top: -60, alignSelf: "center", width: width * 1.2, height: height * 0.45, borderRadius: width },
+  bottomAmbientGlow: { position: "absolute", bottom: -60, alignSelf: "center", width: width * 1.2, height: height * 0.35, borderRadius: width },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 140 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 },
+  avatarWrapper: { position: "relative" },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  headerText: { justifyContent: "center" },
+  greeting: { fontSize: 12, marginBottom: 2 },
+  username: { fontSize: 18, fontWeight: "700", letterSpacing: -0.3 },
+  waveSection: { alignItems: "center", marginBottom: 28 },
+  waveContainer: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, height: 58, marginBottom: 24 },
+  waveBar: { width: 5, borderRadius: 3 },
+  startButton: { minWidth: 112, height: 48, borderRadius: 24, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, marginBottom: 14 },
+  startButtonText: { fontSize: 14, fontWeight: "700" },
+  waveStatus: { fontSize: 13 },
+  connectedHandle: { fontSize: 12, marginTop: 4 },
+  connectSection: { marginBottom: 24 },
+  connectCard: { borderRadius: 20, borderWidth: 1, padding: 20, alignItems: "center" },
+  connectIcon: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 14 },
+  connectTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6 },
+  connectSubtitle: { fontSize: 12.5, textAlign: "center", lineHeight: 18, marginBottom: 18, paddingHorizontal: 6 },
+  connectInputRow: { flexDirection: "row", alignItems: "center", width: "100%", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14, gap: 4 },
+  atSign: { fontSize: 14, fontWeight: "700" },
+  connectInput: { flex: 1, fontSize: 14, padding: 0 },
+  connectButton: { width: "100%", minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 9999 },
+  connectButtonText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  proCard: { borderRadius: 22, padding: 20, marginBottom: 16, overflow: "hidden" },
+  proIconBadge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 14 },
+  proTitle: { fontSize: 19, fontWeight: "700", marginBottom: 6 },
+  proSubtitle: { fontSize: 13, opacity: 0.9, marginBottom: 18, lineHeight: 18, maxWidth: "85%" },
+  proButton: { alignSelf: "flex-start", paddingHorizontal: 22, paddingVertical: 10, borderRadius: 9999 },
+  proButtonText: { fontSize: 13, fontWeight: "700" },
+  featureGrid: { flexDirection: "row", gap: 12, marginBottom: 28 },
+  featureCol: { flex: 1 },
+  featureCard: { borderRadius: 18, borderWidth: 1, padding: 16, minHeight: 148 },
+  featureIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  featureTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  featureSubtitle: { fontSize: 11.5, lineHeight: 16, marginBottom: 14, flexGrow: 1 },
+  featureAction: { alignSelf: "flex-start", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9999 },
+  featureActionText: { fontSize: 12, fontWeight: "700" },
+  exploreHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  exploreTitle: { fontSize: 17, fontWeight: "700" },
+  viewAll: { flexDirection: "row", alignItems: "center", gap: 4 },
+  viewAllText: { fontSize: 13, fontWeight: "600" },
+  voicesRow: { gap: 12, paddingRight: 20 },
+  voiceCard: { width: 164, borderRadius: 18, borderWidth: 1, padding: 12, position: "relative" },
+  favoriteButton: { position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", zIndex: 2 },
+  voiceAvatar: { width: 68, height: 68, borderRadius: 34, alignSelf: "center", marginBottom: 10 },
+  voiceNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  voiceName: { fontSize: 12.5, fontWeight: "700", flex: 1 },
+  voiceFlag: { fontSize: 14 },
+  voiceMeta: { fontSize: 11, marginTop: 3 },
+  voiceFooter: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
+  playButton: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  selectButton: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: "center" },
+  selectButtonText: { fontSize: 12, fontWeight: "700" },
+});
