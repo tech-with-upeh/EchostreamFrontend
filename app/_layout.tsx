@@ -1,29 +1,34 @@
 // app/_layout.tsx
-import { getAccessToken, restoreAuthSession } from "@/lib/api";
+import { useAuthStore } from "@/store/auth.store";
 import { Geist_500Medium } from "@expo-google-fonts/geist";
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function AuthRedirect({ authReady }: { authReady: boolean }) {
+function AuthRedirect() {
   const router = useRouter();
   const segments = useSegments();
+  const { isInitialized, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    if (!authReady) return;
+    if (!isInitialized) return;
+
     const firstSegment = segments[0];
     const inAuth = firstSegment === "(auth)";
     const inDashboard = firstSegment === "(dashboard)";
     const isRoot = !firstSegment || firstSegment === "index";
-    const hasSession = Boolean(getAccessToken());
-    if (hasSession && (inAuth || isRoot)) router.replace("/(dashboard)");
-    else if (!hasSession && (inDashboard || isRoot)) router.replace("/splash");
-  }, [authReady, segments, router]);
+
+    if (isAuthenticated && (inAuth || isRoot)) {
+      router.replace("/(dashboard)");
+    } else if (!isAuthenticated && (inDashboard || isRoot)) {
+      router.replace("/splash");
+    }
+  }, [isInitialized, isAuthenticated, segments, router]);
 
   return null;
 }
@@ -34,7 +39,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Geist_500Medium,
   });
-  const [authReady, setAuthReady] = useState(false);
+  const initializeAuth = useAuthStore((state) => state.initialize);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
 
   useEffect(() => {
     GoogleSignin.configure({
@@ -44,26 +50,20 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    restoreAuthSession().finally(() => {
-      if (mounted) setAuthReady(true);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    void initializeAuth();
+  }, [initializeAuth]);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && authReady)
+    if ((fontsLoaded || fontError) && isInitialized)
       SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError, authReady]);
+  }, [fontsLoaded, fontError, isInitialized]);
 
   if (!fontsLoaded && !fontError) return null;
-  if (!authReady) return null;
+  if (!isInitialized) return null;
 
   return (
     <>
-      <AuthRedirect authReady={authReady} />
+      <AuthRedirect />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="splash" options={{ headerShown: false }} />
