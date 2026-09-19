@@ -1,23 +1,26 @@
-import { create } from "zustand";
 import { getCurrentUser } from "@/lib/api";
 import type { UserProfile } from "@/lib/schema";
+import { create } from "zustand";
 
 type UserState = {
   user: UserProfile | null;
   isLoading: boolean;
   error: string | null;
 
-  fetchUser: () => Promise<void>;
+  fetchUser: (force?: boolean) => Promise<void>;
   clearUser: () => void;
   clearError: () => void;
 };
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = create<UserState>((set, get) => ({
   user: null,
   isLoading: false,
   error: null,
 
-  fetchUser: async () => {
+  fetchUser: async (force = false) => {
+    const { user, isLoading } = get();
+    if (isLoading) return;
+    if (user && !force) return;
     set({ isLoading: true, error: null });
     try {
       const user = await getCurrentUser();

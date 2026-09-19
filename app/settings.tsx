@@ -1,7 +1,9 @@
 import SettingsRow from "@/components/settings/Settingsrow";
 import UpgradeToProCard from "@/components/Upgradetoprocard";
 import { useAppTheme } from "@/hooks/use-theme-color";
-import { clearAuthTokens, logout } from "@/lib/api";
+import { clearVoicePreviewCache } from "@/lib/voice";
+
+import { useAuthStore } from "@/store/auth.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -390,6 +392,7 @@ export default function SettingsScreen() {
   const closeSheet = () => setActiveSheet(null);
   const showComingSoon = (feature: string) =>
     Alert.alert(feature, `${feature} will be available here.`);
+  const logout = useAuthStore((state) => state.logout);
   const handleLogout = () =>
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -398,11 +401,10 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           setisLoggingOut(true);
+
           try {
             await logout();
-          } catch {
           } finally {
-            clearAuthTokens();
             setisLoggingOut(false);
             router.replace("/login");
           }
@@ -468,7 +470,9 @@ export default function SettingsScreen() {
       >
         <Animated.View entering={FadeInDown.duration(500).delay(80)}>
           <Pressable
-            onPress={() => {}}
+            onPress={() => {
+              clearVoicePreviewCache();
+            }}
             style={({ pressed }) => [
               styles.profileRow,
               { opacity: pressed ? 0.7 : 1 },

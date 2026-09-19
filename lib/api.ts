@@ -1,7 +1,8 @@
 import {
   AuthResponse,
   LiveStatus,
-  Prefrence,
+  Preferences,
+  TTSRequest,
   UserProfile,
   VoicesResponse,
 } from "@/lib/schema";
@@ -106,18 +107,90 @@ export class ApiError extends Error {
   }
 }
 
+// async function rawRequest<T>(
+//   path: string,
+//   options: RequestInit = {},
+//   token?: string | null,
+// ): Promise<T> {
+//   if (!BACKEND_URL) throw new ApiError("Backend URL is not configured.", 0);
+//   let response: Response;
+//   try {
+//     response = await fetch(`${BACKEND_URL}${path}`, {
+//       ...options,
+//       headers: {
+//         Accept: "application/json",
+//         "Content-Type": "application/json",
+//         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+//         ...(options.headers ?? {}),
+//       },
+//     });
+//   } catch {
+//     throw new ApiError(
+//       "Unable to reach EchoStream. Check your internet connection.",
+//       0,
+//     );
+//   }
+//   const contentType = response.headers.get("content-type") ?? "";
+//   const body = contentType.includes("application/json")
+//     ? await response.json().catch(() => null)
+//     : await response.text().catch(() => "");
+//   if (!response.ok) {
+//     const detail =
+//       body && typeof body === "object" && "detail" in body
+//         ? String((body as { detail?: unknown }).detail)
+//         : typeof body === "string" && body
+//           ? body
+//           : "Something went wrong. Please try again.";
+//     throw new ApiError(detail, response.status);
+//   }
+//   return body as T;
+// }
+
+// async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+//   try {
+//     return await rawRequest<T>(path, options, accessToken);
+//   } catch (error) {
+//     if (
+//       !(error instanceof ApiError) ||
+//       error.status !== 401 ||
+//       !refreshToken ||
+//       path === "/refresh" ||
+//       path === "/login"
+//     )
+//       throw error;
+//     if (!refreshPromise)
+//       refreshPromise = refreshSession(refreshToken).finally(() => {
+//         refreshPromise = null;
+//       });
+//     try {
+//       const tokens = await refreshPromise;
+//       await persistAuthTokens(tokens);
+//       return await rawRequest<T>(path, options, accessToken);
+//     } catch (refreshError) {
+//       await clearPersistedAuthTokens();
+//       throw refreshError;
+//     }
+//   }
+// }
+
 async function rawRequest<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null,
+  responseType: "json" | "arrayBuffer" = "json",
 ): Promise<T> {
-  if (!BACKEND_URL) throw new ApiError("Backend URL is not configured.", 0);
+  if (!BACKEND_URL) {
+    throw new ApiError("Backend URL is not configured.", 0);
+  }
+
   let response: Response;
+
   try {
     response = await fetch(`${BACKEND_URL}${path}`, {
       ...options,
       headers: {
-        Accept: "application/json",
+        Accept:
+          responseType === "arrayBuffer" ? "audio/mpeg" : "application/json",
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
@@ -129,25 +202,44 @@ async function rawRequest<T>(
       0,
     );
   }
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? await response.json().catch(() => null)
-    : await response.text().catch(() => "");
+
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => "");
+
     const detail =
       body && typeof body === "object" && "detail" in body
         ? String((body as { detail?: unknown }).detail)
         : typeof body === "string" && body
           ? body
           : "Something went wrong. Please try again.";
+
     throw new ApiError(detail, response.status);
   }
+
+  if (responseType === "arrayBuffer") {
+    return (await response.arrayBuffer()) as T;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+
+  const body = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => "");
+
   return body as T;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  responseType: "json" | "arrayBuffer" = "json",
+): Promise<T> {
   try {
-    return await rawRequest<T>(path, options, accessToken);
+    return await rawRequest<T>(path, options, accessToken, responseType);
   } catch (error) {
     if (
       !(error instanceof ApiError) ||
@@ -155,16 +247,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       !refreshToken ||
       path === "/refresh" ||
       path === "/login"
-    )
+    ) {
       throw error;
-    if (!refreshPromise)
+    }
+
+    if (!refreshPromise) {
       refreshPromise = refreshSession(refreshToken).finally(() => {
         refreshPromise = null;
       });
+    }
+
     try {
       const tokens = await refreshPromise;
+
       await persistAuthTokens(tokens);
-      return await rawRequest<T>(path, options, accessToken);
+
+      return await rawRequest<T>(path, options, accessToken, responseType);
     } catch (refreshError) {
       await clearPersistedAuthTokens();
       throw refreshError;
@@ -245,8 +343,15 @@ export function getLiveStatus() {
 }
 
 //PREFRENCES
-export function getPrefrence() {
-  return request<Prefrence>("/v1/preferences");
+export function getPreferences() {
+  return request<Preferences>("/v1/preferences");
+}
+
+export function updatePreferences(preferences: Preferences) {
+  return request<Preferences>("/v1/preferences", {
+    method: "PUT",
+    body: JSON.stringify(preferences),
+  });
 }
 
 // DASHBOARD
@@ -255,6 +360,19 @@ export function getCurrentUser() {
   return request<UserProfile>("/users/me");
 }
 
+//TTS
 export function getVoices() {
   return request<VoicesResponse>("/v1/tts/voices");
+}
+
+export function generateTTS(payload: TTSRequest): Promise<ArrayBuffer> {
+  return request<ArrayBuffer>(
+    "/v1/tts",
+    {
+      method: "POST",
+      headers: { Accept: "audio/mpeg" },
+      body: JSON.stringify(payload),
+    },
+    "arrayBuffer",
+  );
 }

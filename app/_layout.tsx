@@ -1,4 +1,5 @@
 // app/_layout.tsx
+import ErrorOverlay from "@/components/common/ErrorOverlay";
 import { useAuthStore } from "@/store/auth.store";
 import { useUserStore } from "@/store/user.store";
 import { Geist_500Medium } from "@expo-google-fonts/geist";
@@ -91,6 +92,7 @@ export default function RootLayout() {
         <Stack.Screen name="sound-alert" options={{ headerShown: false }} />
         <Stack.Screen name="verify-otp" options={{ headerShown: false }} />
       </Stack>
+      <ErrorOverlay />
     </>
   );
 }

@@ -1,82 +1,82 @@
 import FilterVoicesModal, {
-    DEFAULT_FILTERS,
-    VoiceFilters,
-} from '@/components/voices/FilterVoicesModal';
-import SearchBar from '@/components/voices/SearchBar';
-import VoiceCard, { Voice } from '@/components/voices/VoiceCard';
-import { useAppTheme } from '@/hooks/use-theme-color';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+  DEFAULT_FILTERS,
+  VoiceFilters,
+} from "@/components/voices/FilterVoicesModal";
+import SearchBar from "@/components/voices/SearchBar";
+import VoiceCard, { Voice } from "@/components/voices/VoiceCard";
+import { useAppTheme } from "@/hooks/use-theme-color";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Mock data — replace with your real voice-catalog API response
 const VOICES: Voice[] = [
   {
-    id: '1',
-    name: 'Olivia',
-    gender: 'F',
-    flag: '🇺🇸',
-    style: 'Young',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-    avatarTint: 'rgba(0, 238, 252, 0.14)',
+    id: "1",
+    name: "Olivia",
+    gender: "F",
+    flag: "🇺🇸",
+    style: "Young",
+    avatar: "https://i.pravatar.cc/150?img=5",
+    avatarTint: "rgba(0, 238, 252, 0.14)",
   },
   {
-    id: '2',
-    name: 'Samuel',
-    gender: 'M',
-    flag: '🇬🇧',
-    style: 'Middle-Aged',
-    avatar: 'https://i.pravatar.cc/150?img=13',
-    avatarTint: 'rgba(212, 192, 215, 0.14)',
+    id: "2",
+    name: "Samuel",
+    gender: "M",
+    flag: "🇬🇧",
+    style: "Middle-Aged",
+    avatar: "https://i.pravatar.cc/150?img=13",
+    avatarTint: "rgba(212, 192, 215, 0.14)",
   },
   {
-    id: '3',
-    name: 'Daniel',
-    gender: 'M',
-    flag: '🇮🇳',
-    style: 'Middle-Aged',
-    avatar: 'https://i.pravatar.cc/150?img=14',
-    avatarTint: 'rgba(212, 192, 215, 0.14)',
+    id: "3",
+    name: "Daniel",
+    gender: "M",
+    flag: "🇮🇳",
+    style: "Middle-Aged",
+    avatar: "https://i.pravatar.cc/150?img=14",
+    avatarTint: "rgba(212, 192, 215, 0.14)",
   },
   {
-    id: '4',
-    name: 'Isabella',
-    gender: 'F',
-    flag: '🇳🇬',
-    style: 'Young',
-    avatar: 'https://i.pravatar.cc/150?img=32',
+    id: "4",
+    name: "Isabella",
+    gender: "F",
+    flag: "🇳🇬",
+    style: "Young",
+    avatar: "https://i.pravatar.cc/150?img=32",
     isPremium: true,
-    avatarTint: 'rgba(255, 185, 97, 0.16)',
+    avatarTint: "rgba(255, 185, 97, 0.16)",
   },
   {
-    id: '5',
-    name: 'Abigail',
-    gender: 'F',
-    flag: '🇬🇧',
-    style: 'Middle-Aged',
-    avatar: 'https://i.pravatar.cc/150?img=25',
+    id: "5",
+    name: "Abigail",
+    gender: "F",
+    flag: "🇬🇧",
+    style: "Middle-Aged",
+    avatar: "https://i.pravatar.cc/150?img=25",
     isPremium: true,
-    avatarTint: 'rgba(0, 238, 252, 0.14)',
+    avatarTint: "rgba(0, 238, 252, 0.14)",
   },
   {
-    id: '6',
-    name: 'Gabriel',
-    gender: 'M',
-    flag: '🇧🇷',
-    style: 'Middle-Aged',
-    avatar: 'https://i.pravatar.cc/150?img=51',
+    id: "6",
+    name: "Gabriel",
+    gender: "M",
+    flag: "🇧🇷",
+    style: "Middle-Aged",
+    avatar: "https://i.pravatar.cc/150?img=51",
     isPremium: true,
-    avatarTint: 'rgba(0, 238, 252, 0.14)',
+    avatarTint: "rgba(0, 238, 252, 0.14)",
   },
 ];
 
@@ -111,13 +111,7 @@ export default function VoiceSelectScreen() {
    * Tablet landscape / large screens:
    *   4 columns
    */
-  const numColumns = isPhone
-    ? 2
-    : isTablet
-      ? isLandscape
-        ? 4
-        : 3
-      : 4;
+  const numColumns = isPhone ? 2 : isTablet ? (isLandscape ? 4 : 3) : 4;
 
   /*
    * Responsive horizontal padding.
@@ -125,11 +119,7 @@ export default function VoiceSelectScreen() {
    * Phones stay compact.
    * Tablets get more breathing room.
    */
-  const horizontalPadding = isPhone
-    ? 16
-    : isTablet
-      ? 28
-      : 40;
+  const horizontalPadding = isPhone ? 16 : isTablet ? 28 : 40;
 
   /*
    * Gap between cards.
@@ -142,19 +132,15 @@ export default function VoiceSelectScreen() {
    * This prevents VoiceCard from stretching strangely on iPads.
    */
   const availableWidth =
-    width -
-    horizontalPadding * 2 -
-    gridGap * (numColumns - 1);
+    width - horizontalPadding * 2 - gridGap * (numColumns - 1);
 
   const cardWidth = availableWidth / numColumns;
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [favorited, setFavorited] = useState<Record<string, boolean>>({});
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [filters, setFilters] =
-    useState<VoiceFilters>(DEFAULT_FILTERS);
-  const [filterModalVisible, setFilterModalVisible] =
-    useState(false);
+  const [filters, setFilters] = useState<VoiceFilters>(DEFAULT_FILTERS);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const activeFilterCount = [
     filters.language,
@@ -170,12 +156,11 @@ export default function VoiceSelectScreen() {
 
       const matchesGender =
         !filters.gender ||
-        v.gender ===
-          (filters.gender === 'Male' ? 'M' : 'F');
+        v.gender === (filters.gender === "Male" ? "Male" : "Female");
 
       const matchesAge =
         !filters.ageGroup ||
-        filters.ageGroup === 'All Age Groups' ||
+        filters.ageGroup === "All Age Groups" ||
         v.style === filters.ageGroup;
 
       return matchesQuery && matchesGender && matchesAge;
@@ -190,9 +175,7 @@ export default function VoiceSelectScreen() {
   };
 
   const togglePlay = (id: string) => {
-    setPlayingId((current) =>
-      current === id ? null : id
-    );
+    setPlayingId((current) => (current === id ? null : id));
   };
 
   const handleSelect = (voice: Voice) => {
@@ -211,7 +194,7 @@ export default function VoiceSelectScreen() {
           backgroundColor: theme.background,
         },
       ]}
-      edges={['top', 'left', 'right']}
+      edges={["top", "left", "right"]}
     >
       {/* Background */}
       <View style={StyleSheet.absoluteFillObject}>
@@ -242,11 +225,7 @@ export default function VoiceSelectScreen() {
           ]}
           hitSlop={8}
         >
-          <Ionicons
-            name="arrow-back"
-            size={20}
-            color={theme.onSurface}
-          />
+          <Ionicons name="arrow-back" size={20} color={theme.onSurface} />
         </Pressable>
 
         <Text
@@ -272,11 +251,7 @@ export default function VoiceSelectScreen() {
           ]}
           hitSlop={8}
         >
-          <Ionicons
-            name="options-outline"
-            size={20}
-            color={theme.onSurface}
-          />
+          <Ionicons name="options-outline" size={20} color={theme.onSurface} />
 
           {activeFilterCount > 0 && (
             <View
@@ -313,10 +288,7 @@ export default function VoiceSelectScreen() {
           },
         ]}
       >
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-        />
+        <SearchBar value={query} onChangeText={setQuery} />
       </View>
 
       {/* ================= VOICE GRID ================= */}
@@ -347,15 +319,10 @@ export default function VoiceSelectScreen() {
               voice={item}
               favorited={!!favorited[item.id]}
               isPlaying={playingId === item.id}
-              onToggleFavorite={() =>
-                toggleFavorite(item.id)
-              }
-              onTogglePlay={() =>
-                togglePlay(item.id)
-              }
-              onSelect={() =>
-                handleSelect(item)
-              }
+              onToggleFavorite={() => toggleFavorite(item.id)}
+              onTogglePlay={() => togglePlay(item.id)}
+              onSelect={() => handleSelect(item)}
+              theme={theme}
             />
           </View>
         )}
@@ -364,9 +331,7 @@ export default function VoiceSelectScreen() {
             style={[
               styles.emptyState,
               {
-                width:
-                  width -
-                  horizontalPadding * 2,
+                width: width - horizontalPadding * 2,
               },
             ]}
           >
@@ -374,8 +339,7 @@ export default function VoiceSelectScreen() {
               style={[
                 styles.emptyIcon,
                 {
-                  backgroundColor:
-                    theme.surfaceVariant,
+                  backgroundColor: theme.surfaceVariant,
                 },
               ]}
             >
@@ -415,9 +379,7 @@ export default function VoiceSelectScreen() {
       <FilterVoicesModal
         visible={filterModalVisible}
         initialFilters={filters}
-        onClose={() =>
-          setFilterModalVisible(false)
-        }
+        onClose={() => setFilterModalVisible(false)}
         onApply={setFilters}
       />
     </SafeAreaView>
@@ -430,56 +392,56 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   headerButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
-    fontWeight: '700',
+    textAlign: "center",
+    fontWeight: "700",
     letterSpacing: -0.3,
     marginHorizontal: 12,
   },
 
   filterBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -2,
     right: -2,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 3,
   },
 
   filterBadgeText: {
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 
   searchWrapper: {
-    width: '100%',
+    width: "100%",
   },
 
   gridContent: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
 
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingTop: 70,
   },
 
@@ -487,20 +449,19 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 14,
   },
 
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 5,
   },
 
   emptyText: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
-
