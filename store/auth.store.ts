@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import type { AuthResponse } from "@/lib/schema";
 import { useUserStore } from "@/store/user.store";
+import { reportError } from "@/store/error.store";
 import { create } from "zustand";
 import { usePreferencesStore } from "./preference.store";
 
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const authenticated = await restoreAuthSession();
       set({ isAuthenticated: authenticated, isInitialized: true });
     } catch (error) {
+      reportError(error, "Unable to restore session.");
       set({
         isAuthenticated: false,
         isInitialized: true,
@@ -79,6 +81,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
+      reportError(error, "Unable to log in.");
       set({
         error: error instanceof Error ? error.message : "Unable to log in.",
         isAuthenticated: false,
@@ -97,6 +100,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return tokens;
     } catch (error) {
+      reportError(error, "Unable to log in with Google.");
       set({
         error:
           error instanceof Error
@@ -115,6 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       return await apiRegister(firstName, lastName, email, password);
     } catch (error) {
+      reportError(error, "Unable to create your account.");
       set({
         error:
           error instanceof Error
@@ -139,6 +144,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return result;
     } catch (error) {
+      reportError(error, "Unable to verify your email.");
       set({
         error:
           error instanceof Error
@@ -156,6 +162,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       return await apiResendVerification(email);
     } catch (error) {
+      reportError(error, "Unable to resend the verification code.");
       set({
         error:
           error instanceof Error
@@ -173,6 +180,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       return await ForgotPassword(email);
     } catch (error) {
+      reportError(error, "Unable to send the reset code.");
       set({
         error:
           error instanceof Error
@@ -195,6 +203,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: true });
       return result;
     } catch (error) {
+      reportError(error, "Unable to reset your password.");
       set({
         error:
           error instanceof Error
@@ -217,6 +226,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await apiLogout();
     } catch (error) {
+      reportError(error, "Unable to log out.");
       set({
         error: error instanceof Error ? error.message : "Unable to log out.",
       });

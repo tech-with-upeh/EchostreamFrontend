@@ -4,6 +4,8 @@ import { useAppTheme } from "@/hooks/use-theme-color";
 import { clearVoicePreviewCache } from "@/lib/voice";
 
 import { useAuthStore } from "@/store/auth.store";
+import { reportError, reportInfo } from "@/store/error.store";
+import { useUserStore } from "@/store/user.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,12 +15,12 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -35,13 +37,8 @@ import {
 
 const { width, height } = Dimensions.get("window");
 const DESTRUCTIVE = "#FF5C5C";
-const USER = {
-  name: "Andrew Ainsley",
-  email: "andrew.ainsley@yourdomain.com",
-  avatar: "https://i.pravatar.cc/150?img=13",
-};
 const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: "people-outline", label: "Switch User" },
+  { icon: "logo-tiktok", label: "Connect TikTok" },
   { icon: "notifications-outline", label: "Notifications" },
   { icon: "shield-checkmark-outline", label: "Account & Security" },
   { icon: "star-outline", label: "Billing & Subscriptions" },
@@ -51,7 +48,7 @@ const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
 ];
 const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 type SheetType =
-  | "Switch User"
+  | "Connect TikTok"
   | "Notifications"
   | "Account & Security"
   | "Billing & Subscriptions"
@@ -59,6 +56,7 @@ type SheetType =
   | "Terms of Service"
   | "Language"
   | null;
+type ChangePasswordStep = "idle" | "otp" | "password" | "success";
 
 type SwitchProps = {
   value: boolean;
@@ -388,11 +386,125 @@ export default function SettingsScreen() {
   const [twoFactor, setTwoFactor] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("English");
   const [isLoggingOut, setisLoggingOut] = useState(false);
+  const [tiktokUsername, setTiktokUsername] = useState("");
+  const [connectedTikTokUsername, setConnectedTikTokUsername] = useState<
+    string | null
+  >(null);
+  const [isConnectingTikTok, setIsConnectingTikTok] = useState(false);
+  const [changePasswordStep, setChangePasswordStep] =
+    useState<ChangePasswordStep>("idle");
+  const [changePasswordOtp, setChangePasswordOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const openSheet = (label: SheetType) => setActiveSheet(label);
   const closeSheet = () => setActiveSheet(null);
   const showComingSoon = (feature: string) =>
     Alert.alert(feature, `${feature} will be available here.`);
   const logout = useAuthStore((state) => state.logout);
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const resetPassword = useAuthStore((state) => state.resetPassword);
+  const user = useUserStore((state) => state.user);
+  const fullName = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .join(" ") || "Your account";
+  const initials = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .map((name) => name!.charAt(0).toUpperCase())
+    .join("") || "?";
+  const currentPlan = user?.plan
+    ? `${user.plan.charAt(0).toUpperCase()}${user.plan.slice(1)}`
+    : "Free";
+  const isPaidUser = user?.plan === "essential" || user?.plan === "pro";
+  const accountEmail = user?.email?.trim() ?? "";
+  const cleanTikTokUsername = tiktokUsername.trim().replace(/^@/, "");
+  const isTikTokUsernameValid = cleanTikTokUsername.length >= 2;
+  const normalizedChangePasswordOtp = changePasswordOtp
+    .replace(/\D/g, "")
+    .slice(0, 6);
+  const canContinuePasswordChange =
+    normalizedChangePasswordOtp.length === 6 && !isSendingPasswordOtp;
+  const canSubmitPasswordChange =
+    canContinuePasswordChange &&
+    newPassword.length >= 8 &&
+    newPassword === confirmNewPassword &&
+    !isChangingPassword;
+  const resetChangePasswordForm = () => {
+    setChangePasswordOtp("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setShowNewPassword(false);
+    setShowConfirmNewPassword(false);
+  };
+  const handleSendPasswordOtp = async () => {
+    if (isSendingPasswordOtp) return;
+
+    if (!accountEmail) {
+      reportError("We could not find an email address for this account.");
+      return;
+    }
+
+    setIsSendingPasswordOtp(true);
+    try {
+      await forgotPassword(accountEmail);
+      resetChangePasswordForm();
+      setChangePasswordStep("otp");
+      reportInfo(`Verification code sent to ${accountEmail}.`);
+    } catch (error) {
+      reportError(error, "Unable to send the verification code.");
+    } finally {
+      setIsSendingPasswordOtp(false);
+    }
+  };
+  const handleContinuePasswordChange = () => {
+    if (!canContinuePasswordChange) {
+      reportError("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    setChangePasswordStep("password");
+  };
+  const handleSubmitPasswordChange = async () => {
+    if (!canContinuePasswordChange) {
+      reportError("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      reportError("Your password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      reportError("Please make sure both passwords are the same.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await resetPassword(normalizedChangePasswordOtp, accountEmail, newPassword);
+      resetChangePasswordForm();
+      setChangePasswordStep("success");
+      reportInfo("Your password has been updated.");
+    } catch (error) {
+      reportError(error, "Unable to update your password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+  const handleConnectTikTok = () => {
+    if (!isTikTokUsernameValid || isConnectingTikTok) return;
+
+    setIsConnectingTikTok(true);
+    setTimeout(() => {
+      setConnectedTikTokUsername(cleanTikTokUsername);
+      setTiktokUsername(cleanTikTokUsername);
+      setIsConnectingTikTok(false);
+    }, 500);
+  };
   const handleLogout = () =>
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -454,12 +566,13 @@ export default function SettingsScreen() {
         <Text style={[styles.headerTitle, { color: theme.onSurface }]}>
           Account
         </Text>
-        <MaterialCommunityIcons
-          name="waveform"
-          size={20}
-          color={theme.primary}
-          style={styles.waveform}
-        />
+        <View style={styles.headerIconSlot}>
+          <MaterialCommunityIcons
+            name="waveform"
+            size={20}
+            color={theme.primary}
+          />
+        </View>
       </Animated.View>
       <ScrollView
         contentContainerStyle={[
@@ -478,15 +591,24 @@ export default function SettingsScreen() {
               { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <Image source={{ uri: USER.avatar }} style={styles.avatar} />
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: theme.primary },
+              ]}
+            >
+              <Text style={[styles.avatarInitials, { color: theme.buttonText }]}>
+                {initials}
+              </Text>
+            </View>
             <View style={styles.profileText}>
               <Text style={[styles.profileName, { color: theme.onSurface }]}>
-                {USER.name}
+                {fullName}
               </Text>
               <Text
                 style={[styles.profileEmail, { color: theme.onSurfaceVariant }]}
               >
-                {USER.email}
+                {user?.email ?? "Loading account details…"}
               </Text>
             </View>
             <Ionicons
@@ -517,10 +639,10 @@ export default function SettingsScreen() {
                     { color: theme.onSurfaceVariant },
                   ]}
                 >
-                  CREDITS USAGE
+                  CURRENT PLAN
                 </Text>
                 <Text style={[styles.creditsTitle, { color: theme.onSurface }]}>
-                  Monthly credits
+                  {currentPlan}
                 </Text>
               </View>
               <View
@@ -533,7 +655,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[styles.creditsBadgeText, { color: theme.primary }]}
                 >
-                  FREE
+                  {isPaidUser ? "PAID" : "FREE"}
                 </Text>
               </View>
             </View>
@@ -550,35 +672,24 @@ export default function SettingsScreen() {
                   { color: theme.onSurfaceVariant },
                 ]}
               >
-                Credits remaining
+                Plan status
               </Text>
               <Text
                 style={[styles.creditsUsageValue, { color: theme.onSurface }]}
               >
-                100 / 100
+                {user?.subscription_status || (isPaidUser ? "Active" : "Free plan")}
               </Text>
-            </View>
-            <View
-              style={[
-                styles.creditsProgressTrack,
-                { backgroundColor: theme.outline },
-              ]}
-            >
-              <View
-                style={[
-                  styles.creditsProgressFill,
-                  { backgroundColor: theme.primary, width: "100%" },
-                ]}
-              />
             </View>
           </View>
         </Animated.View>
-        <Animated.View
-          entering={FadeInUp.duration(500).delay(160)}
-          style={styles.proWrapper}
-        >
-          <UpgradeToProCard onPress={() => router.push("/pricing")} />
-        </Animated.View>
+        {!isPaidUser && (
+          <Animated.View
+            entering={FadeInUp.duration(500).delay(160)}
+            style={styles.proWrapper}
+          >
+            <UpgradeToProCard onPress={() => router.push("/pricing")} />
+          </Animated.View>
+        )}
         <Animated.View
           entering={FadeInUp.duration(500).delay(240)}
           style={[
@@ -638,39 +749,131 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <BottomSheet
-        visible={activeSheet === "Switch User"}
-        title="Switch User"
-        icon="people-outline"
+        visible={activeSheet === "Connect TikTok"}
+        title="Connect TikTok"
+        icon="logo-tiktok"
         onClose={closeSheet}
       >
-        <Text style={[styles.sheetIntro, { color: theme.onSurfaceVariant }]}>
-          Choose which account you want to use with EchoStream AI.
-        </Text>
-        <SheetOption
-          icon="person"
-          title="Andrew Ainsley"
-          description={USER.email}
-          selected
-          onPress={closeSheet}
-        />
-        <SheetOption
-          icon="person-outline"
-          title="Guest Account"
-          description="guest@yourdomain.com"
-          onPress={() => showComingSoon("Switch User")}
-        />
-        <Pressable
-          onPress={() => showComingSoon("Add another account")}
-          style={({ pressed }) => [
-            styles.primaryAction,
-            { backgroundColor: theme.primary, opacity: pressed ? 0.75 : 1 },
+        <View
+          style={[
+            styles.tiktokConnectCard,
+            {
+              backgroundColor: theme.surfaceVariant,
+              borderColor: theme.outline,
+            },
           ]}
         >
-          <Ionicons name="add" size={20} color={theme.buttonText} />
-          <Text style={[styles.primaryActionText, { color: theme.buttonText }]}>
-            Add Another Account
+          <View
+            style={[
+              styles.tiktokConnectIcon,
+              { backgroundColor: theme.surface },
+            ]}
+          >
+            <Ionicons name="logo-tiktok" size={24} color={theme.onSurface} />
+          </View>
+          <Text style={[styles.tiktokConnectTitle, { color: theme.onSurface }]}>
+            Connect your TikTok
           </Text>
-        </Pressable>
+          <Text
+            style={[
+              styles.tiktokConnectSubtitle,
+              { color: theme.onSurfaceVariant },
+            ]}
+          >
+            Enter your TikTok username so EchoStream can listen for live
+            comments.
+          </Text>
+          <View
+            style={[
+              styles.tiktokInputRow,
+              {
+                borderColor: theme.outline,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.tiktokAtSign, { color: theme.onSurfaceVariant }]}
+            >
+              @
+            </Text>
+            <TextInput
+              value={tiktokUsername}
+              onChangeText={setTiktokUsername}
+              placeholder="yourusername"
+              placeholderTextColor={theme.onSurfaceVariant}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleConnectTikTok}
+              style={[styles.tiktokInput, { color: theme.onSurface }]}
+            />
+          </View>
+          {connectedTikTokUsername ? (
+            <View
+              style={[
+                styles.connectedTikTokPill,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.outline,
+                },
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={theme.primary}
+              />
+              <Text
+                style={[
+                  styles.connectedTikTokText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                Connected to @{connectedTikTokUsername}
+              </Text>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={handleConnectTikTok}
+            disabled={!isTikTokUsernameValid || isConnectingTikTok}
+            style={({ pressed }) => [
+              styles.tiktokConnectButton,
+              {
+                backgroundColor: theme.primary,
+                opacity:
+                  isTikTokUsernameValid && !isConnectingTikTok
+                    ? pressed
+                      ? 0.75
+                      : 1
+                    : 0.5,
+              },
+            ]}
+          >
+            {isConnectingTikTok ? (
+              <ActivityIndicator color={theme.buttonText} />
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.tiktokConnectButtonText,
+                    { color: theme.buttonText },
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
+                  Connect Account
+                </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={16}
+                  color={theme.buttonText}
+                />
+              </>
+            )}
+          </Pressable>
+        </View>
       </BottomSheet>
       <BottomSheet
         visible={activeSheet === "Notifications"}
@@ -741,8 +944,14 @@ export default function SettingsScreen() {
           <ActionRow
             icon="lock-closed-outline"
             title="Change Password"
-            description="Update your account password."
-            onPress={() => showComingSoon("Change Password")}
+            description={
+              changePasswordStep === "idle"
+                ? "Send a verification code to update your password."
+                : `Code sent to ${accountEmail || "your account email"}.`
+            }
+            onPress={() => {
+              void handleSendPasswordOtp();
+            }}
           />
           <ToggleRow
             icon="finger-print-outline"
@@ -765,6 +974,292 @@ export default function SettingsScreen() {
             onPress={() => showComingSoon("Active Sessions")}
           />
         </View>
+        {changePasswordStep !== "idle" ? (
+          <View
+            style={[
+              styles.passwordFlowCard,
+              {
+                backgroundColor: theme.surfaceVariant,
+                borderColor: theme.outline,
+              },
+            ]}
+          >
+            <View style={styles.passwordFlowHeader}>
+              <View
+                style={[
+                  styles.passwordFlowIcon,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    changePasswordStep === "success"
+                      ? "checkmark-circle-outline"
+                      : "keypad-outline"
+                  }
+                  size={20}
+                  color={theme.primary}
+                />
+              </View>
+              <View style={styles.passwordFlowHeaderText}>
+                <Text
+                  style={[styles.passwordFlowTitle, { color: theme.onSurface }]}
+                >
+                  {changePasswordStep === "success"
+                    ? "Password updated"
+                    : "Verify it is you"}
+                </Text>
+                <Text
+                  style={[
+                    styles.passwordFlowSubtitle,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  {changePasswordStep === "success"
+                    ? "Your new password is ready to use."
+                    : `Enter the code sent to ${accountEmail || "your email"}.`}
+                </Text>
+              </View>
+            </View>
+            {changePasswordStep === "otp" ? (
+              <>
+                <View
+                  style={[
+                    styles.passwordInputRow,
+                    {
+                      borderColor: theme.outline,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={18}
+                    color={theme.onSurfaceVariant}
+                  />
+                  <TextInput
+                    value={changePasswordOtp}
+                    onChangeText={(value) =>
+                      setChangePasswordOtp(value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    placeholder="000000"
+                    placeholderTextColor={theme.onSurfaceVariant}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                    returnKeyType="done"
+                    onSubmitEditing={handleContinuePasswordChange}
+                    style={[
+                      styles.passwordInput,
+                      styles.passwordCodeInput,
+                      { color: theme.onSurface },
+                    ]}
+                  />
+                </View>
+                <Pressable
+                  onPress={handleContinuePasswordChange}
+                  disabled={!canContinuePasswordChange}
+                  style={({ pressed }) => [
+                    styles.passwordPrimaryButton,
+                    {
+                      backgroundColor: theme.primary,
+                      opacity: canContinuePasswordChange
+                        ? pressed
+                          ? 0.75
+                          : 1
+                        : 0.5,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.passwordPrimaryButtonText,
+                      { color: theme.buttonText },
+                    ]}
+                  >
+                    Continue
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color={theme.buttonText}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    void handleSendPasswordOtp();
+                  }}
+                  disabled={isSendingPasswordOtp}
+                  style={styles.passwordTextButton}
+                >
+                  <Text
+                    style={[
+                      styles.passwordTextButtonText,
+                      { color: theme.primary },
+                    ]}
+                  >
+                    {isSendingPasswordOtp ? "Sending code..." : "Resend code"}
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
+            {changePasswordStep === "password" ? (
+              <>
+                <View
+                  style={[
+                    styles.passwordInputRow,
+                    {
+                      borderColor: theme.outline,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color={theme.onSurfaceVariant}
+                  />
+                  <TextInput
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="New password"
+                    placeholderTextColor={theme.onSurfaceVariant}
+                    secureTextEntry={!showNewPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={[styles.passwordInput, { color: theme.onSurface }]}
+                  />
+                  <Pressable
+                    onPress={() => setShowNewPassword((value) => !value)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                      size={18}
+                      color={theme.onSurfaceVariant}
+                    />
+                  </Pressable>
+                </View>
+                <View
+                  style={[
+                    styles.passwordInputRow,
+                    {
+                      borderColor: theme.outline,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color={theme.onSurfaceVariant}
+                  />
+                  <TextInput
+                    value={confirmNewPassword}
+                    onChangeText={setConfirmNewPassword}
+                    placeholder="Confirm new password"
+                    placeholderTextColor={theme.onSurfaceVariant}
+                    secureTextEntry={!showConfirmNewPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmitPasswordChange}
+                    style={[styles.passwordInput, { color: theme.onSurface }]}
+                  />
+                  <Pressable
+                    onPress={() =>
+                      setShowConfirmNewPassword((value) => !value)
+                    }
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={
+                        showConfirmNewPassword
+                          ? "eye-outline"
+                          : "eye-off-outline"
+                      }
+                      size={18}
+                      color={theme.onSurfaceVariant}
+                    />
+                  </Pressable>
+                </View>
+                <Text
+                  style={[
+                    styles.passwordHint,
+                    {
+                      color:
+                        newPassword && newPassword.length < 8
+                          ? DESTRUCTIVE
+                          : theme.onSurfaceVariant,
+                    },
+                  ]}
+                >
+                  At least 8 characters
+                </Text>
+                <Pressable
+                  onPress={handleSubmitPasswordChange}
+                  disabled={!canSubmitPasswordChange}
+                  style={({ pressed }) => [
+                    styles.passwordPrimaryButton,
+                    {
+                      backgroundColor: theme.primary,
+                      opacity: canSubmitPasswordChange
+                        ? pressed
+                          ? 0.75
+                          : 1
+                        : 0.5,
+                    },
+                  ]}
+                >
+                  {isChangingPassword ? (
+                    <ActivityIndicator color={theme.buttonText} />
+                  ) : (
+                    <>
+                      <Text
+                        style={[
+                          styles.passwordPrimaryButtonText,
+                          { color: theme.buttonText },
+                        ]}
+                      >
+                        Update Password
+                      </Text>
+                      <Ionicons
+                        name="checkmark"
+                        size={17}
+                        color={theme.buttonText}
+                      />
+                    </>
+                  )}
+                </Pressable>
+              </>
+            ) : null}
+            {changePasswordStep === "success" ? (
+              <Pressable
+                onPress={() => {
+                  resetChangePasswordForm();
+                  setChangePasswordStep("idle");
+                }}
+                style={({ pressed }) => [
+                  styles.passwordPrimaryButton,
+                  {
+                    backgroundColor: theme.primary,
+                    opacity: pressed ? 0.75 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.passwordPrimaryButtonText,
+                    { color: theme.buttonText },
+                  ]}
+                >
+                  Done
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         <View
           style={[
             styles.securityBadge,
@@ -1089,21 +1584,29 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 10,
     width: "100%",
   },
   headerButton: {
-    position: "absolute",
-    left: 20,
     width: 36,
     height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
-  waveform: { position: "absolute", right: 20 },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  headerIconSlot: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 140 },
   scrollContentTablet: { alignSelf: "center", width: "100%", maxWidth: 760 },
   tabletContentWidth: { width: "100%" },
@@ -1113,7 +1616,8 @@ const styles = StyleSheet.create({
     gap: 14,
     marginBottom: 20,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26 },
+  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  avatarInitials: { fontSize: 17, fontWeight: "800" },
   profileText: { flex: 1 },
   profileName: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
   profileEmail: { fontSize: 12.5 },
@@ -1324,6 +1828,70 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   primaryActionText: { fontSize: 14.5, fontWeight: "800" },
+  tiktokConnectCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  tiktokConnectIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  tiktokConnectTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6 },
+  tiktokConnectSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: "center",
+    paddingHorizontal: 6,
+    marginBottom: 18,
+  },
+  tiktokInputRow: {
+    width: "100%",
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  tiktokAtSign: { fontSize: 14, fontWeight: "700" },
+  tiktokInput: { flex: 1, fontSize: 14, padding: 0 },
+  connectedTikTokPill: {
+    minHeight: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  connectedTikTokText: { fontSize: 12, fontWeight: "600" },
+  tiktokConnectButton: {
+    width: "100%",
+    minHeight: 52,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  tiktokConnectButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
   securityBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1335,6 +1903,64 @@ const styles = StyleSheet.create({
   securityBadgeText: { flex: 1 },
   securityBadgeTitle: { fontSize: 13.5, fontWeight: "700", marginBottom: 3 },
   securityBadgeDescription: { fontSize: 11.5, lineHeight: 17 },
+  passwordFlowCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 18,
+  },
+  passwordFlowHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+  },
+  passwordFlowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  passwordFlowHeaderText: { flex: 1 },
+  passwordFlowTitle: { fontSize: 14.5, fontWeight: "800", marginBottom: 3 },
+  passwordFlowSubtitle: { fontSize: 12, lineHeight: 17 },
+  passwordInputRow: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  passwordInput: { flex: 1, fontSize: 14, padding: 0 },
+  passwordCodeInput: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 4,
+    textAlign: "center",
+  },
+  passwordHint: { fontSize: 12, marginBottom: 14 },
+  passwordPrimaryButton: {
+    minHeight: 52,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  passwordPrimaryButtonText: { fontSize: 14, fontWeight: "800" },
+  passwordTextButton: {
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  passwordTextButtonText: { fontSize: 13, fontWeight: "700" },
   planCard: { borderRadius: 18, borderWidth: 1, padding: 18, marginBottom: 18 },
   planHeader: {
     flexDirection: "row",

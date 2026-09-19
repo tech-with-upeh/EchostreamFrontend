@@ -1,12 +1,12 @@
 import AuthShell from "@/components/AuthShell";
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { resendVerification, setAuthTokens, verifyEmailCode } from "@/lib/api";
+import { reportError } from "@/store/error.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -94,21 +94,15 @@ export default function VerifyOtpScreen() {
   const handleResend = async () => {
     if (secondsLeft > 0) return;
     if (!email) {
-      return Alert.alert(
-        "Invalid email",
-        "Please enter a valid email address.",
-      );
+      return reportError("Please enter a valid email address.");
     }
     try {
       const req = await resendVerification(email || "");
       if (req.status != "success") {
-        return Alert.alert(
-          "Invalid email",
-          "Please enter a valid email address.",
-        );
+        return reportError("Please enter a valid email address.");
       }
     } catch (error) {
-      return Alert.alert("Unexpected Error", `${error}`);
+      return reportError(error);
     } finally {
       setSecondsLeft(RESEND_SECONDS);
     }
@@ -135,18 +129,19 @@ export default function VerifyOtpScreen() {
   const handleVerify = async () => {
     if (!isComplete) return;
     if (!/^\S+@\S+\.\S+$/.test(email || ""))
-      return Alert.alert(
-        "Invalid email",
-        "Please enter a valid email address.",
-      );
+      return reportError("Please enter a valid email address.");
     if (flow === "reset") {
       router.push({ pathname: "/reset-password", params: { email, code } });
     } else {
-      const tokens = await verifyEmailCode(email || "", code);
-      if (!tokens.access_token || !tokens.refresh_token)
-        throw new Error("The server returned an invalid login response.");
-      setAuthTokens(tokens);
-      router.replace("/pricing");
+      try {
+        const tokens = await verifyEmailCode(email || "", code);
+        if (!tokens.access_token || !tokens.refresh_token)
+          throw new Error("The server returned an invalid login response.");
+        setAuthTokens(tokens);
+        router.replace("/pricing");
+      } catch (error) {
+        reportError(error, "Unable to verify your email. Please try again.");
+      }
     }
   };
 

@@ -1,10 +1,11 @@
 import AuthShell from "@/components/AuthShell";
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { useAuthStore } from "@/store/auth.store";
+import { reportError } from "@/store/error.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { Easing, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming, ZoomIn } from "react-native-reanimated";
 
 const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
@@ -32,14 +33,14 @@ export default function ResetPasswordScreen() {
   const handleReset = async () => {
     if (!isValid || isLoading) return;
     if (!code || !email) {
-      Alert.alert("Invalid request", "Please restart the password reset flow.");
+      reportError("Please restart the password reset flow.");
       return;
     }
     try {
       await resetPassword(code, email, password);
       router.replace("/(dashboard)");
     } catch (error) {
-      Alert.alert("Reset failed", error instanceof Error ? error.message : "Unable to reset your password. Please try again.");
+      reportError(error, "Unable to reset your password. Please try again.");
     }
   };
 

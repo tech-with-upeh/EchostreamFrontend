@@ -6,6 +6,7 @@ import {
   UserProfile,
   VoicesResponse,
 } from "@/lib/schema";
+import { reportWarning } from "@/store/error.store";
 import * as SecureStore from "expo-secure-store";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.replace(/\/$/, "");
@@ -13,7 +14,7 @@ const ACCESS_TOKEN_KEY = "echostream.access_token";
 const REFRESH_TOKEN_KEY = "echostream.refresh_token";
 
 if (!BACKEND_URL)
-  console.warn(
+  reportWarning(
     "EXPO_PUBLIC_BACKEND_URL is not configured. Add it to your .env file.",
   );
 

@@ -1,4 +1,5 @@
 import { Buffer } from "buffer"; // Ensure this is installed or use an alternative if handling raw text
+import { reportWarning } from "@/store/error.store";
 
 const POLL_URL =
   process.env.EXPO_PUBLIC_POLLINATION_BASE_URL?.replace(/\/$/, "") ||
@@ -6,7 +7,7 @@ const POLL_URL =
 const POLL_KEY = process.env.EXPO_PUBLIC_POLLINATION_KEY;
 
 if (!process.env.EXPO_PUBLIC_POLLINATION_BASE_URL) {
-  console.warn(
+  reportWarning(
     "EXPO_PUBLIC_POLLINATION_BASE_URL is not configured. Falling back to default gateway.",
   );
 }

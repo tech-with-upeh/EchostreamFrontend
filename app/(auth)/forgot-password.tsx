@@ -1,10 +1,11 @@
 import AuthShell from "@/components/AuthShell";
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { useAuthStore } from "@/store/auth.store";
+import { reportError } from "@/store/error.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { Easing, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming, ZoomIn } from "react-native-reanimated";
 
 const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
@@ -31,12 +32,12 @@ export default function ForgotPasswordScreen() {
     try {
       const result = await forgotPassword(normalizedEmail);
       if (result.status != "success") {
-        Alert.alert("Invalid email", "Please enter a valid email address.");
+        reportError("Please enter a valid email address.");
         return;
       }
       router.push({ pathname: "/verify-otp", params: { email: normalizedEmail, flow: "reset" } });
     } catch (error) {
-      Alert.alert("Unexpected Error", error instanceof Error ? error.message : "Unable to send the reset code.");
+      reportError(error, "Unable to send the reset code.");
     }
   };
 
@@ -47,7 +48,7 @@ export default function ForgotPasswordScreen() {
           <Ionicons name="lock-closed-outline" size={30} color={theme.onSurfaceVariant} />
         </Animated.View>
         <Animated.Text entering={FadeInDown.duration(500).delay(180)} style={[styles.title, { color: theme.onSurface }]}>Forgot Password?</Animated.Text>
-        <Animated.Text entering={FadeInDown.duration(500).delay(230)} style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>No worries — enter your email and we'll{"\n"}send you a code to reset it.</Animated.Text>
+        <Animated.Text entering={FadeInDown.duration(500).delay(230)} style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>No worries — enter your email and we&apos;ll{"\n"}send you a code to reset it.</Animated.Text>
         <Animated.View entering={FadeInUp.duration(500).delay(300)} style={[styles.inputRow, { borderColor: theme.outline, backgroundColor: theme.surfaceVariant }]}>
           <Ionicons name="mail-outline" size={18} color={theme.onSurfaceVariant} />
           <TextInput placeholder="Email Address" placeholderTextColor={theme.onSurfaceVariant} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoFocus style={[styles.input, { color: theme.onSurface }]} />

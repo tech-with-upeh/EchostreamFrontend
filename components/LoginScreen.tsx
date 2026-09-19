@@ -1,12 +1,12 @@
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { register } from "@/lib/api";
 import { useAuthStore } from "@/store/auth.store";
+import { reportError } from "@/store/error.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -86,37 +86,36 @@ export default function LoginScreen() {
       router.replace("/(dashboard)");
     } catch (error: any) {
       if (error.code === "SIGN_IN_CANCELLED") return;
-      console.error("Google sign-in error:", error);
-      Alert.alert("Login failed", error instanceof Error ? error.message : "Unable to log in. Please try again.");
+      reportError(error, "Unable to log in. Please try again.");
     }
   }
 
   const handleLogin = async () => {
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail || !password) return Alert.alert("Missing details", "Please enter your email and password.");
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return Alert.alert("Invalid email", "Please enter a valid email address.");
+    if (!normalizedEmail || !password) return reportError("Please enter your email and password.");
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return reportError("Please enter a valid email address.");
     try {
       await login(normalizedEmail, password);
       router.replace("/(dashboard)");
     } catch (error) {
-      Alert.alert("Login failed", error instanceof Error ? error.message : "Unable to log in. Please try again.");
+      reportError(error, "Unable to log in. Please try again.");
     }
   };
 
   const handleRegister = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length < 2) return Alert.alert("Name required", "Please enter your first and last name.");
-    if (!normalizedEmail || !password || !confirmPassword) return Alert.alert("Missing details", "Please complete all fields.");
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return Alert.alert("Invalid email", "Please enter a valid email address.");
-    if (password.length < 8) return Alert.alert("Weak password", "Your password must be at least 8 characters long.");
-    if (password !== confirmPassword) return Alert.alert("Passwords do not match", "Please make sure both passwords are the same.");
+    if (parts.length < 2) return reportError("Please enter your first and last name.");
+    if (!normalizedEmail || !password || !confirmPassword) return reportError("Please complete all fields.");
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return reportError("Please enter a valid email address.");
+    if (password.length < 8) return reportError("Your password must be at least 8 characters long.");
+    if (password !== confirmPassword) return reportError("Please make sure both passwords are the same.");
     try {
       setIsRegistering(true);
       await register(parts[0], parts.slice(1).join(" "), normalizedEmail, password);
       router.push({ pathname: "/verify-otp", params: { email: normalizedEmail, flow: "signup" } });
     } catch (error) {
-      Alert.alert("Registration failed", error instanceof Error ? error.message : "Unable to create your account. Please try again.");
+      reportError(error, "Unable to create your account. Please try again.");
     } finally {
       setIsRegistering(false);
     }
