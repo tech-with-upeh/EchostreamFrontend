@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 interface ToggleRowProps {
   icon?: React.ReactNode;
   label: string;
+  isPremium?: boolean;
   subtitle?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
@@ -18,6 +19,7 @@ interface ToggleRowProps {
 export default function ToggleRow({
   icon,
   label,
+  isPremium,
   subtitle,
   value,
   onValueChange,
@@ -33,7 +35,7 @@ export default function ToggleRow({
       <View style={styles.left}>
         {icon}
         <View style={styles.textCol}>
-          <Text style={[styles.label, { color: theme.onSurface }, bold && styles.labelBold]}>{label}</Text>
+          <View style={styles.labelRow}><Text style={[styles.label, { color: theme.onSurface }, bold && styles.labelBold]}>{label}</Text>{isPremium && <Ionicons name="diamond" size={11} color="#FFB961" />}</View>
           {subtitle ? <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>{subtitle}</Text> : null}
         </View>
         {showChevron && <Ionicons name="chevron-forward" size={16} color={theme.onSurfaceVariant} />}
@@ -84,6 +86,11 @@ const styles = StyleSheet.create({
   labelBold: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   subtitle: {
     fontSize: 11.5,
