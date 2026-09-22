@@ -1,5 +1,8 @@
 import {
   AuthResponse,
+  EventAlertConfig,
+  GiftsPreference,
+  GiftsResponse,
   LiveStatus,
   Preferences,
   TTSRequest,
@@ -361,7 +364,7 @@ export function getCurrentUser() {
   return request<UserProfile>("/users/me");
 }
 
-//TTS
+//TTS--- CHAT
 export function getVoices() {
   return request<VoicesResponse>("/v1/tts/voices");
 }
@@ -376,4 +379,29 @@ export function generateTTS(payload: TTSRequest): Promise<ArrayBuffer> {
     },
     "arrayBuffer",
   );
+}
+
+//TTS --- GIFT
+export function getGifts() {
+  return request<GiftsResponse>("/v1/gifts");
+}
+
+export function getGiftsPreference() {
+  return request<GiftsPreference>("/v1/gift-preferences");
+}
+
+export function putGiftsPreference(
+  preferences: Partial<EventAlertConfig>,
+  id: string,
+) {
+  return request<EventAlertConfig>(`/v1/gift-preferences/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(preferences),
+  });
+}
+
+export function deleteGiftsPreference(id: string) {
+  return request<void>(`/v1/gift-preferences/${id}`, {
+    method: "DELETE",
+  });
 }

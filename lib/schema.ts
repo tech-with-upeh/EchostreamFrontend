@@ -10,10 +10,48 @@ export interface LiveStatus {
   error: string | null;
 }
 
-//PREFRENCES
+// PREFERENCES
+
+export type TtsProvider = "edge" | "fish" | string;
+
+export type AlertType = "tts" | "sound" | "custom_audio" | string;
+
+export type AllowedUserType =
+  | "all"
+  | "subscriber"
+  | "moderator"
+  | "moderator_and_up";
+
+export interface EventAlertConfig {
+  enabled: boolean;
+  alert_type: AlertType;
+  tts_template: string;
+  tts_provider: TtsProvider;
+  voice: string | null;
+  fish_voice_id: string | null;
+  fish_model: string | null;
+  system_sound_id: string | null;
+  custom_audio_id: string | null;
+  custom_audio_url: string | null;
+  volume: number | null;
+  speed: number | null;
+  pitch: string | null;
+
+  id: string;
+  event_type: "follow" | "like" | "gift";
+  gift_id: string | null;
+}
+
+export interface PreferenceEvents {
+  gift?: EventAlertConfig;
+  like?: EventAlertConfig;
+  follow?: EventAlertConfig;
+  [eventKey: string]: EventAlertConfig | undefined;
+}
+
 export interface Preferences {
   tiktok_username?: string | null;
-  tts_provider?: "edge" | "fish" | string; // extensible if you use more providers
+  tts_provider?: TtsProvider;
   voice?: string;
   fish_voice_id?: string | null;
   fish_model?: string;
@@ -26,13 +64,8 @@ export interface Preferences {
   max_message_length?: number;
   comment_speech_enabled?: boolean;
   comment_speech_template?: string;
-  events?: Record<string, any>;
-  allowed_user_types?: (
-    | "all"
-    | "subscriber"
-    | "moderator"
-    | "moderator_and_up"
-  )[];
+  events?: PreferenceEvents;
+  allowed_user_types?: AllowedUserType[];
   minimum_account_age_days?: number;
   blocked_words?: string[];
   spam_protection_enabled?: boolean;
@@ -77,3 +110,16 @@ export interface TTSRequest {
   speed?: number;
   fish_model?: "s2-pro" | "s2.1-pro-free";
 }
+
+// TTS--- GIFT
+export interface Gift {
+  id: string;
+  name: string;
+  diamond_count: number;
+  type: number;
+  image_url: string;
+}
+
+export type GiftsResponse = Gift[];
+
+export type GiftsPreference = EventAlertConfig[];

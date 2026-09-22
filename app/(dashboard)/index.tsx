@@ -4,6 +4,7 @@ import { useAppTheme } from "@/hooks/use-theme-color";
 import { updatePreferences } from "@/lib/api";
 import { deriveVoiceInfo } from "@/lib/helpers";
 import type { EdgeVoice } from "@/lib/schema";
+import { useGiftPreferencesStore } from "@/store/giftpref.store";
 import { useLiveStatusStore } from "@/store/livestatus.store";
 import { usePreferencesStore } from "@/store/preference.store";
 import { useUserStore } from "@/store/user.store";
@@ -51,6 +52,7 @@ export default function HomeScreen() {
   const { theme, isDark } = useAppTheme();
   const router = useRouter();
   const user = useUserStore((state) => state.user);
+  const fetchuser = useUserStore((state) => state.fetchUser);
   const loadingUser = useUserStore((state) => state.isLoading);
   const [isActive, setIsActive] = useState(false);
   const [favorited, setFavorited] = useState<Record<string, boolean>>({});
@@ -69,6 +71,9 @@ export default function HomeScreen() {
     (state) => state.fetchPreferences,
   );
 
+  const fetchgiftPreferences = useGiftPreferencesStore(
+    (state) => state.fetchGiftspref,
+  );
   const voices = useVoicesStore((state) => state.voices);
   const loadingVoices = useVoicesStore((state) => state.isLoading);
   const fetchVoices = useVoicesStore((state) => state.fetchVoices);
@@ -99,9 +104,12 @@ export default function HomeScreen() {
     setRefreshing(true);
     try {
       await Promise.all([
-        fetchVoices(true),
+        //fetchVoices(true),
+        fetchuser(true),
         fetchPreferences(true),
         fetchLiveStatus(true),
+
+        fetchgiftPreferences(true),
       ]);
     } catch (err) {
       reportError("Refresh failed: " + err);
@@ -606,145 +614,6 @@ function FeatureCard({
     </View>
   );
 }
-
-// function VoiceCard({
-//   voice,
-//   favorited,
-//   onToggleFavorite,
-//   theme,
-// }: {
-//   voice: EdgeVoice;
-//   favorited: boolean;
-//   onToggleFavorite: () => void;
-//   theme: ReturnType<typeof useAppTheme>["theme"];
-// }) {
-//   type AgeGroup = "young" | "middle-aged" | "old";
-//   type Gender = "Male" | "Female" | "Non-binary";
-
-//   const [gender, setGender] = useState<Gender>(voice.gender);
-
-//   const [description, setDescription] = useState("Neural");
-
-//   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState<string | null>(null);
-//   const [country, setCountry] = useState<string>("");
-//   const [Lang, setLang] = useState<string>("");
-
-//   useEffect(() => {
-//     let cancelled = false;
-//     const { language, country } = parseLocale(
-//       deriveVoiceInfo(voice.short_name).languageCode +
-//         "-" +
-//         deriveVoiceInfo(voice.short_name).countryCode,
-//     );
-//     setCountry(country);
-//     setLang(language);
-//     setDescription(deriveVoiceInfo(voice.short_name).description);
-
-//     const generateAvatar = async () => {
-//       setLoading(true);
-//       setError(null);
-
-//       try {
-//         const base64ImageUri = await getAvatarImage({
-//           gender,
-//           country,
-//           language,
-//           description: description.trim() || undefined,
-//           model: "flux",
-//         });
-
-//         if (!cancelled) {
-//           setAvatarUri(base64ImageUri);
-//         }
-//       } catch (err) {
-//         if (!cancelled) {
-//           if (err instanceof ApiError) {
-//             setError(`API Error (${err.status}): ${err.message}`);
-//           } else {
-//             setError("An unexpected network error occurred.");
-//           }
-//         }
-//       } finally {
-//         if (!cancelled) {
-//           setLoading(false);
-//         }
-//       }
-//     };
-
-//     generateAvatar();
-
-//     return () => {
-//       cancelled = true;
-//     };
-//   }, [voice.short_name]);
-
-//   return (
-//     <View
-//       style={[
-//         styles.voiceCard,
-//         {
-//           backgroundColor: theme.surfaceVariant,
-//           borderColor: theme.outline,
-//         },
-//       ]}
-//     >
-//       <Pressable
-//         onPress={onToggleFavorite}
-//         style={[styles.favoriteButton, { backgroundColor: theme.surface }]}
-//         hitSlop={6}
-//       >
-//         <Ionicons
-//           name={favorited ? "heart" : "heart-outline"}
-//           size={14}
-//           color={favorited ? theme.primary : theme.onSurfaceVariant}
-//         />
-//       </Pressable>
-
-//       {loading ? (
-//         <View style={styles.voiceAvatar}>
-//           <Skeleton height={68} width={68} borderRadius={34} />
-//         </View>
-//       ) : (
-//         <Image
-//           source={{
-//             uri: avatarUri || "https://i.pravatar.cc/150?img=55",
-//           }}
-//           style={styles.voiceAvatar}
-//         />
-//       )}
-
-//       <View style={styles.voiceNameRow}>
-//         <Text style={[styles.voiceName, { color: theme.onSurface }]}>
-//           {deriveVoiceInfo(voice.short_name).name.slice(0, -6)} ({voice.gender})
-//         </Text>
-//       </View>
-
-//       <Text style={[styles.voiceMeta, { color: theme.onSurfaceVariant }]}>
-//         <CountryFlag
-//           isoCode={deriveVoiceInfo(voice.short_name).countryCode}
-//           size={10}
-//         />{" "}
-//         · {Lang}
-//       </Text>
-
-//       <View style={styles.voiceFooter}>
-//         <Pressable style={[styles.playButton, { borderColor: theme.outline }]}>
-//           <Ionicons name="play" size={13} color={theme.onSurface} />
-//         </Pressable>
-
-//         <Pressable
-//           style={[styles.selectButton, { backgroundColor: theme.primary }]}
-//         >
-//           <Text style={[styles.selectButtonText, { color: theme.buttonText }]}>
-//             Select
-//           </Text>
-//         </Pressable>
-//       </View>
-//     </View>
-//   );
-// }
 
 function SoundWave({
   active,

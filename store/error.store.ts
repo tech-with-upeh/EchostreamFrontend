@@ -20,7 +20,10 @@ let lastMessage = "";
 let lastReportedAt = 0;
 
 /** Convert values thrown by APIs, promises, and console calls into safe UI copy. */
-export function getErrorMessage(value: unknown, fallback = "Something went wrong. Please try again.") {
+export function getErrorMessage(
+  value: unknown,
+  fallback = "Something went wrong. Please try again.",
+) {
   if (value instanceof Error && value.message) return value.message;
   if (typeof value === "string" && value.trim()) return value;
 
@@ -71,7 +74,9 @@ export const reportError = (error: unknown, fallback?: string) =>
   useErrorStore.getState().report(getErrorMessage(error, fallback), "error");
 
 export const reportWarning = (warning: unknown, fallback?: string) =>
-  useErrorStore.getState().report(getErrorMessage(warning, fallback), "warning");
+  useErrorStore
+    .getState()
+    .report(getErrorMessage(warning, fallback), "warning");
 
 export const reportInfo = (info: unknown, fallback?: string) =>
   useErrorStore.getState().report(getErrorMessage(info, fallback), "info");
@@ -87,9 +92,15 @@ export function installConsoleReporter() {
   consoleReportingInstalled = true;
 
   const formatArgs = (args: unknown[]) =>
-    args.map((arg) => getErrorMessage(arg, String(arg ?? ""))).filter(Boolean).join(" ");
+    args
+      .map((arg) => getErrorMessage(arg, String(arg ?? "")))
+      .filter(Boolean)
+      .join(" ");
 
-  console.log = (...args: unknown[]) => reportInfo(formatArgs(args) || "Log message");
-  console.warn = (...args: unknown[]) => reportWarning(formatArgs(args) || "Warning");
-  console.error = (...args: unknown[]) => reportError(formatArgs(args) || "Error");
+  console.log = (...args: unknown[]) =>
+    reportInfo(formatArgs(args) || "Log message");
+  console.warn = (...args: unknown[]) =>
+    reportWarning(formatArgs(args) || "Warning");
+  console.error = (...args: unknown[]) =>
+    reportError(formatArgs(args) || "Error");
 }
