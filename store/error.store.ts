@@ -83,10 +83,10 @@ export const reportInfo = (info: unknown, fallback?: string) =>
 
 let consoleReportingInstalled = false;
 
-/**
- * Routes future application console calls through the in-app banner instead of
- * the native console/LogBox. Install this once as the app starts.
- */
+const originalLog = console.log.bind(console);
+const originalWarn = console.warn.bind(console);
+const originalError = console.error.bind(console);
+
 export function installConsoleReporter() {
   if (consoleReportingInstalled) return;
   consoleReportingInstalled = true;
@@ -97,10 +97,18 @@ export function installConsoleReporter() {
       .filter(Boolean)
       .join(" ");
 
-  console.log = (...args: unknown[]) =>
+  console.log = (...args: unknown[]) => {
+    originalLog(...args);
     reportInfo(formatArgs(args) || "Log message");
-  console.warn = (...args: unknown[]) =>
+  };
+
+  console.warn = (...args: unknown[]) => {
+    originalWarn(...args);
     reportWarning(formatArgs(args) || "Warning");
-  console.error = (...args: unknown[]) =>
+  };
+
+  console.error = (...args: unknown[]) => {
+    originalError(...args);
     reportError(formatArgs(args) || "Error");
+  };
 }

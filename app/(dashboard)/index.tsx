@@ -1,33 +1,30 @@
 import { Skeleton } from "@/components/common/Skeleton";
+import TikTokConnectForm from "@/components/dashboard/ttconnect";
 import VoiceCard, { Voice } from "@/components/voices/VoiceCard";
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { updatePreferences } from "@/lib/api";
 import { deriveVoiceInfo } from "@/lib/helpers";
-import type { EdgeVoice } from "@/lib/schema";
+import type { EdgeVoice, FishVoice } from "@/lib/schema";
+import { reportError } from "@/store/error.store";
 import { useGiftPreferencesStore } from "@/store/giftpref.store";
 import { useLiveStatusStore } from "@/store/livestatus.store";
 import { usePreferencesStore } from "@/store/preference.store";
 import { useUserStore } from "@/store/user.store";
 import { useVoicesStore } from "@/store/voice.store";
 import { useVoicePreviewStore } from "@/store/voicepreview.store";
-import {
-  FontAwesome5,
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -37,16 +34,65 @@ import Animated, {
   FadeInUp,
   FadeOut,
   Layout,
-  useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type DisplayVoice = {
+  key: string;
+  playId: string; // id passed to togglePlay/preview store
+  provider: "edge" | "fish";
+  voice: Voice; // VoiceCard prop shape
+  raw: EdgeVoice | FishVoice;
+};
+
+function buildFishAvatarUrl(coverimage: string) {
+  return `https://public-platform.r2.fish.audio/cdn-cgi/image/width=128,format=webp/${coverimage}`;
+}
+
+function fishToDisplayVoice(fv: FishVoice): DisplayVoice {
+  const countryCode = fv.locale?.split("-")[1] ?? "";
+  const languageLabel =
+    fv.languages?.[0] ?? fv.locale?.split("-")[0]?.toUpperCase() ?? "";
+
+  return {
+    key: `fish-${fv.id}`,
+    playId: fv.id,
+    provider: "fish",
+    raw: fv,
+    voice: {
+      id: fv.id,
+      name: fv.name,
+      gender: (fv.gender as Voice["gender"]) ?? "Non-binary",
+      short_name: fv.id,
+      provider: "fish",
+      description: fv.description,
+      languageLabel,
+      countryCode,
+      avatarUri: fv.coverimage ? buildFishAvatarUrl(fv.coverimage) : undefined,
+    },
+  };
+}
+
+function edgeToDisplayVoice(ev: EdgeVoice): DisplayVoice {
+  return {
+    key: `edge-${ev.short_name}`,
+    playId: ev.short_name,
+    provider: "edge",
+    raw: ev,
+    voice: {
+      id: ev.id,
+      name: ev.name,
+      gender: ev.gender,
+      short_name: ev.short_name,
+      provider: "edge",
+    },
+  };
+}
 const { width, height } = Dimensions.get("window");
-const SPRING = { damping: 16, stiffness: 180, mass: 0.9 };
 
 export default function HomeScreen() {
   const { theme, isDark } = useAppTheme();
@@ -67,6 +113,8 @@ export default function HomeScreen() {
 
   const preferences = usePreferencesStore((state) => state.preferences);
 
+  const canUseFish = user?.plan === "essential" || user?.plan === "pro";
+
   const fetchPreferences = usePreferencesStore(
     (state) => state.fetchPreferences,
   );
@@ -80,6 +128,15 @@ export default function HomeScreen() {
 
   const { playingVoiceId, loadingVoiceId, playPreview, stopPreview } =
     useVoicePreviewStore();
+
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  // Reset whenever the image URL changes
+  useEffect(() => {
+    setAvatarFailed(false);
+    setAvatarLoading(!!user?.tt_image);
+  }, [user?.tt_image]);
 
   useEffect(() => {
     if (!user) return;
@@ -127,20 +184,52 @@ export default function HomeScreen() {
     setPlayingId((current) => (current === id ? null : id));
   };
 
-  const handleSelect = (voice: Voice) => {
-    updatePreferences({ voice: voice.short_name, fish_model: "ughjbvsb" })
+  const handleSelect = (dv: DisplayVoice) => {
+    const payload =
+      dv.provider === "fish"
+        ? {
+            tts_provider: "fish" as const,
+            fish_voice_id: (dv.raw as FishVoice).id,
+            fish_model: "s2-pro" as const,
+            voice: dv.voice.name,
+          }
+        : {
+            tts_provider: "edge" as const,
+            voice: (dv.raw as EdgeVoice).short_name,
+          };
+
+    return updatePreferences(payload)
       .catch((err) => {
-        reportError("Failed to upda preferences: ");
+        reportError("Failed to update preferences: " + err);
       })
-      .finally(() => {
-        // if (preferences) {
-        //   preferences.voice = voice.short_name;
-        // }
-        fetchPreferences().catch((err) =>
-          reportError("Failed to reload preferences: "),
-        );
-      });
+      .then(() =>
+        fetchPreferences(true).catch((err) =>
+          reportError("Failed to reload preferences: " + err),
+        ),
+      );
   };
+
+  const displayVoices: DisplayVoice[] = React.useMemo(() => {
+    const fishVoices = (voices?.fish ?? [])
+      .slice()
+      .filter(
+        (v) =>
+          v.languages?.some((l) => l.toLowerCase().startsWith("en")) ||
+          v.locale?.startsWith("en"),
+      )
+      .slice(0, 5)
+      .map(fishToDisplayVoice);
+
+    const edgeVoices = (voices?.edge ?? [])
+      .slice()
+      .filter((v) => v.locale.startsWith("en-"))
+      .sort((a, b) => a.locale.localeCompare(b.locale))
+      .slice(0, 3)
+      .map(edgeToDisplayVoice);
+
+    return [...fishVoices, ...edgeVoices];
+  }, [voices]);
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -184,31 +273,65 @@ export default function HomeScreen() {
             onPress={() => router.push("/settings")}
             style={styles.avatarWrapper}
           >
-            <View
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: theme.surfaceVariant,
-                  borderColor: theme.outline,
-                },
-              ]}
-            >
-              <Ionicons
-                name="person"
-                size={26}
-                color={theme.onSurfaceVariant}
-              />
-            </View>
+            {user?.tt_image && !avatarFailed ? (
+              <View
+                style={[
+                  styles.avatarImageWrap,
+                  {
+                    backgroundColor: theme.surfaceVariant,
+                    borderColor: "transparent",
+                    boxShadow: isDark
+                      ? "0px 0px 18px #0000004d"
+                      : "0px 0px 18px #8681814d",
+                  },
+                ]}
+              >
+                <Image
+                  source={{ uri: user.tt_image }}
+                  style={styles.avatarImage}
+                  onLoadEnd={() => setAvatarLoading(false)}
+                  onError={() => {
+                    setAvatarFailed(true);
+                    setAvatarLoading(false);
+                  }}
+                />
+                {avatarLoading && (
+                  <View style={StyleSheet.absoluteFill}>
+                    <Skeleton width={52} height={52} borderRadius={26} />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.avatar,
+                  {
+                    backgroundColor: theme.surfaceVariant,
+                    borderWidth: 0,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 8,
+                    elevation: 5,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="person"
+                  size={26}
+                  color={theme.onSurfaceVariant}
+                />
+              </View>
+            )}
             <View
               style={[
                 styles.badge,
                 {
-                  backgroundColor: theme.primary,
-                  borderColor: theme.background,
+                  borderWidth: 0,
                 },
               ]}
             >
-              <Ionicons name="settings" size={11} color={theme.buttonText} />
+              <Ionicons name="settings" size={11} color={theme.primary} />
             </View>
           </Pressable>
           <View style={styles.headerText}>
@@ -330,7 +453,7 @@ export default function HomeScreen() {
                 />
               }
               title="Selected Voice"
-              subtitle={`${deriveVoiceInfo(preferences?.voice || "").name} · ${deriveVoiceInfo(preferences?.voice || "").description == undefined ? "Neural" : deriveVoiceInfo(preferences?.voice || "").description} · Male`}
+              subtitle={`${preferences?.tts_provider == "fish" ? preferences?.voice : deriveVoiceInfo(preferences?.voice || "").name} · ${deriveVoiceInfo(preferences?.voice || "").description == undefined ? "Neural" : deriveVoiceInfo(preferences?.voice || "").description} · Male`}
               actionLabel="Change"
               onPress={() => router.push("/voice-select")}
               theme={theme}
@@ -381,12 +504,6 @@ export default function HomeScreen() {
           >
             {loadingVoices
               ? Array.from({ length: 5 }).map((_, index) => (
-                  // <Skeleton
-                  //   key={index}
-                  //   height={150}
-                  //   width={150}
-                  //   borderRadius={8}
-                  // />
                   <View
                     style={[
                       styles.voiceCard,
@@ -398,6 +515,11 @@ export default function HomeScreen() {
                         backgroundColor: theme.surfaceVariant,
                         justifyContent: "center",
                         alignItems: "center",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 8, height: 4 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 8,
+                        elevation: 5,
                       },
                     ]}
                     key={index}
@@ -405,149 +527,31 @@ export default function HomeScreen() {
                     <Skeleton height={68} width={68} borderRadius={34} />
                     <Skeleton height={20} width={100} borderRadius={6} />
                     <Skeleton height={20} width={100} borderRadius={6} />
-
                     <View style={[styles.voiceFooter, { marginTop: 0 }]}>
                       <Skeleton height={25} width={25} borderRadius={30} />
                       <Skeleton height={30} width={70} borderRadius={6} />
                     </View>
                   </View>
                 ))
-              : voices?.edge
-                  .slice()
-                  // 1. Keep only English locales
-                  .filter((voice: EdgeVoice) => voice.locale.startsWith("en-"))
-                  // 2. Sort alphabetically by locale
-                  .sort((a: EdgeVoice, b: EdgeVoice) =>
-                    a.locale.localeCompare(b.locale),
-                  )
-                  // 3. Take only the first 5 elements
-                  .slice(0, 5)
-                  // 4. Map over the final 5 items
-                  .map((voice: EdgeVoice) => (
-                    <VoiceCard
-                      key={voice.short_name}
-                      voice={voice}
-                      favorited={!!favorited[voice.short_name]}
-                      isPlaying={playingVoiceId == voice.short_name}
-                      isPlayingPreviewLoading={
-                        loadingVoiceId == voice.short_name
-                      }
-                      onToggleFavorite={() => toggleFavorite(voice.id)}
-                      onTogglePlay={() => togglePlay(voice.short_name, "edge")}
-                      onSelect={() => handleSelect(voice)}
-                      theme={theme}
-                    />
-                  ))}
+              : displayVoices.map((dv) => (
+                  <VoiceCard
+                    key={dv.key}
+                    voice={dv.voice}
+                    favorited={!!favorited[dv.playId]}
+                    isPlaying={playingVoiceId === dv.playId}
+                    isPlayingPreviewLoading={loadingVoiceId === dv.playId}
+                    onToggleFavorite={() => toggleFavorite(dv.playId)}
+                    onTogglePlay={() => togglePlay(dv.playId, dv.provider)}
+                    onSelect={() => handleSelect(dv)}
+                    locked={dv.provider === "fish" && !canUseFish}
+                    onUpgradePress={() => router.push("/pricing")}
+                    theme={theme}
+                  />
+                ))}
           </ScrollView>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function TikTokConnectForm({
-  onConnected,
-  theme,
-}: {
-  onConnected: (username: string) => void;
-  theme: ReturnType<typeof useAppTheme>["theme"];
-}) {
-  const [value, setValue] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const clean = value.trim().replace(/^@/, "");
-  const isValid = clean.length >= 2;
-  const scale = useSharedValue(1);
-  const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
-  const buttonWidth = isTablet
-    ? Math.min(width * 0.55, 420)
-    : Math.min(width - 40, 360);
-  const handleSubmit = () => {
-    if (!isValid || submitting) return;
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      onConnected(clean);
-    }, 500);
-  };
-  return (
-    <View
-      style={[
-        styles.connectCard,
-        { backgroundColor: theme.surfaceVariant, borderColor: theme.outline },
-      ]}
-    >
-      <View style={[styles.connectIcon, { backgroundColor: theme.surface }]}>
-        <FontAwesome5 name="tiktok" size={22} color={theme.onSurface} />
-      </View>
-      <Text style={[styles.connectTitle, { color: theme.onSurface }]}>
-        Connect your TikTok
-      </Text>
-      <Text style={[styles.connectSubtitle, { color: theme.onSurfaceVariant }]}>
-        Enter your TikTok username so we can pull live comments to read out with
-        text-to-speech.
-      </Text>
-      <View
-        style={[
-          styles.connectInputRow,
-          { borderColor: theme.outline, backgroundColor: theme.surface },
-        ]}
-      >
-        <Text style={[styles.atSign, { color: theme.onSurfaceVariant }]}>
-          @
-        </Text>
-        <TextInput
-          value={value}
-          onChangeText={setValue}
-          placeholder="yourusername"
-          placeholderTextColor={theme.onSurfaceVariant}
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={[styles.connectInput, { color: theme.onSurface }]}
-          onSubmitEditing={handleSubmit}
-          returnKeyType="done"
-        />
-      </View>
-      <Animated.View
-        style={[
-          scaleStyle,
-          { width: buttonWidth, maxWidth: "100%", alignSelf: "center" },
-        ]}
-      >
-        <Pressable
-          onPress={handleSubmit}
-          onPressIn={() => {
-            if (isValid && !submitting) scale.value = withSpring(0.97, SPRING);
-          }}
-          onPressOut={() => {
-            scale.value = withSpring(1, SPRING);
-          }}
-          disabled={!isValid || submitting}
-          style={[
-            styles.connectButton,
-            {
-              backgroundColor: theme.primary,
-              opacity: isValid && !submitting ? 1 : 0.5,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.connectButtonText, { color: theme.buttonText }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.85}
-          >
-            {submitting ? "Connecting…" : "Connect Account"}
-          </Text>
-          {!submitting && (
-            <Ionicons name="arrow-forward" size={16} color={theme.buttonText} />
-          )}
-        </Pressable>
-      </Animated.View>
-    </View>
   );
 }
 
@@ -583,12 +587,17 @@ function FeatureCard({
     <View
       style={[
         styles.featureCard,
-        { backgroundColor: theme.surfaceVariant, borderColor: theme.outline },
+        {
+          backgroundColor: theme.surfaceVariant,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          elevation: 5,
+        },
       ]}
     >
-      <View style={[styles.featureIcon, { backgroundColor: theme.surface }]}>
-        {icon}
-      </View>
+      <View style={[styles.featureIcon]}>{icon}</View>
       <Text style={[styles.featureTitle, { color: theme.onSurface }]}>
         {title}
       </Text>
@@ -729,6 +738,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  avatarImage: { width: 52, height: 52, borderRadius: 26 },
   badge: {
     position: "absolute",
     bottom: -2,
@@ -775,47 +790,6 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
   },
-  connectIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-  },
-  connectTitle: { fontSize: 17, fontWeight: "700", marginBottom: 6 },
-  connectSubtitle: {
-    fontSize: 12.5,
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 18,
-    paddingHorizontal: 6,
-  },
-  connectInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
-    gap: 4,
-  },
-  atSign: { fontSize: 14, fontWeight: "700" },
-  connectInput: { flex: 1, fontSize: 14, padding: 0 },
-  connectButton: {
-    width: "100%",
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 9999,
-  },
-  connectButtonText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
   proCard: {
     borderRadius: 22,
     padding: 20,
@@ -849,7 +823,7 @@ const styles = StyleSheet.create({
   featureCol: { flex: 1 },
   featureCard: {
     borderRadius: 18,
-    borderWidth: 1,
+
     padding: 16,
     minHeight: 148,
   },

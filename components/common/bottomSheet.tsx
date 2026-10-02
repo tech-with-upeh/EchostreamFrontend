@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -98,17 +98,6 @@ export default function BottomSheet({
             ]}
           >
             <View style={styles.sheetTitleRow}>
-              <View
-                style={[
-                  styles.sheetTitleIcon,
-                  {
-                    backgroundColor: theme.surfaceVariant,
-                  },
-                ]}
-              >
-                <Ionicons name={icon} size={20} color={theme.primary} />
-              </View>
-
               <Text
                 style={[
                   styles.sheetTitle,
@@ -126,7 +115,6 @@ export default function BottomSheet({
               style={({ pressed }) => [
                 styles.closeButton,
                 {
-                  backgroundColor: theme.surfaceVariant,
                   opacity: pressed ? 0.6 : 1,
                 },
               ]}

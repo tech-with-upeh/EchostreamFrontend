@@ -52,7 +52,7 @@ export interface PreferenceEvents {
 export interface Preferences {
   tiktok_username?: string | null;
   tts_provider?: TtsProvider;
-  voice?: string;
+  voice?: string | null;
   fish_voice_id?: string | null;
   fish_model?: string;
   pitch?: string;
@@ -86,6 +86,7 @@ export interface UserProfile {
   plan: "starter" | "essential" | "pro";
   subscription_status: string;
   trial_ends_at: string | null;
+  tt_image: string | null;
   subscription_ends_at: string | null;
 }
 
@@ -98,9 +99,22 @@ export interface EdgeVoice {
   locale: string;
 }
 
+export interface FishVoice {
+  id: string;
+  name: string;
+  provider: string;
+  voice_type: string;
+  description: string;
+  languages: string[];
+  gender: string;
+  age: string;
+  coverimage: string;
+  locale: string;
+  visibility: string;
+}
 export interface VoicesResponse {
   edge: EdgeVoice[];
-  fish: unknown[];
+  fish: FishVoice[];
 }
 
 export interface TTSRequest {
@@ -123,3 +137,62 @@ export interface Gift {
 export type GiftsResponse = Gift[];
 
 export type GiftsPreference = EventAlertConfig[];
+
+// Admin Sound Alert
+
+export interface SystemSound {
+  id: number;
+  name: string;
+  public_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SystemSoundsResponse = SystemSound[];
+
+//USER Sound Alert
+export type UserSoundResponse = SystemSound[];
+
+export type UserSoundUploadResponse = {
+  id: number;
+  name: string;
+  public_url: string;
+  size: number;
+};
+
+//Clone Voice
+export interface ClonedVoice {
+  id: string;
+  name: string;
+  provider: string;
+  voice_type: string;
+  description: string;
+  language: [];
+  gender: string;
+  age: string;
+  coverimage: string;
+  locale: string;
+  visibility: string;
+}
+export type UserClonedResponse = ClonedVoice[];
+
+export interface CloneResponse {
+  voice_id: string;
+  provider: string;
+  message: string;
+}
+
+//Notifications
+export type RegisterDeviceResponse = {
+  id: number;
+  platform: string;
+  is_active: boolean;
+};
+
+export type NotificationPreferenceResponse = {
+  push_enabled: boolean;
+  subscription_enabled: boolean;
+  streaming_reminders_enabled: boolean;
+  account_security_enabled: boolean;
+  product_updates_enabled: boolean;
+};

@@ -83,7 +83,10 @@ export const useVoicePreviewStore = create<VoicePreviewState>((set, get) => {
 
       let audioPath: string;
       try {
-        audioPath = await getVoicePreview(voiceId, (provider = "edge"));
+        audioPath = await getVoicePreview(
+          voiceId,
+          provider == "fish" ? "fish" : "edge",
+        );
       } catch (error) {
         // Only clear loading state if we're still the active request.
         if (requestSeq === myRequestId) {

@@ -20,7 +20,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 /** Debounce (ms) applied while a slider is being dragged. */
 const SLIDER_SAVE_DELAY = 400;
@@ -315,10 +322,9 @@ export default function TtsChatTab() {
      */
     if (preferences?.tts_provider === "fish") {
       return {
-        name:
-          preferences.fish_voice_id || preferences.voice || "Selected voice",
+        name: preferences.voice || "Selected voice",
         gender: "",
-        language: "Fish Audio",
+        language: "Premium Voice",
         isPremium: true,
       };
     }
@@ -350,8 +356,12 @@ export default function TtsChatTab() {
     preferences?.voice,
   ]);
 
-  const selectedVoiceId =
-    preferences?.voice || selectedVoice?.short_name || null;
+  const isFish = preferences?.tts_provider === "fish";
+
+  // Fish previews need the Fish id, not the display name stored in `voice`
+  const selectedVoiceId = isFish
+    ? preferences?.fish_voice_id || null
+    : preferences?.voice || selectedVoice?.short_name || null;
 
   const isPreviewLoading =
     selectedVoiceId !== null && loadingVoiceId === selectedVoiceId;
@@ -371,10 +381,7 @@ export default function TtsChatTab() {
     }
 
     try {
-      await playPreview(
-        selectedVoiceId,
-        preferences?.tts_provider === "fish" ? "fish" : "edge",
-      );
+      await playPreview(selectedVoiceId, isFish ? "fish" : "edge");
     } catch (error) {
       reportError("Failed to play voice preview: " + error);
     }
@@ -460,7 +467,10 @@ export default function TtsChatTab() {
   };
 
   return (
-    <>
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* =========================
           CHAT TTS
          ========================= */}
@@ -481,7 +491,12 @@ export default function TtsChatTab() {
           styles.card,
           {
             backgroundColor: theme.surfaceVariant,
-            borderColor: theme.outline,
+            borderWidth: 0,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 5,
           },
         ]}
       >
@@ -619,17 +634,15 @@ export default function TtsChatTab() {
             },
           ]}
         >
-          <Ionicons
-            name={
-              isPreviewLoading
-                ? "hourglass-outline"
-                : isPreviewPlaying
-                  ? "pause"
-                  : "play"
-            }
-            size={16}
-            color={theme.primary}
-          />
+          {isPreviewLoading ? (
+            <ActivityIndicator />
+          ) : (
+            <Ionicons
+              name={isPreviewPlaying ? "pause" : "play"}
+              size={16}
+              color={theme.primary}
+            />
+          )}
 
           <Text
             style={[
@@ -677,7 +690,12 @@ export default function TtsChatTab() {
           styles.card,
           {
             backgroundColor: theme.surfaceVariant,
-            borderColor: theme.outline,
+            borderWidth: 0,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 5,
           },
         ]}
       >
@@ -803,7 +821,12 @@ export default function TtsChatTab() {
           styles.card,
           {
             backgroundColor: theme.surfaceVariant,
-            borderColor: theme.outline,
+            borderWidth: 0,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 5,
           },
         ]}
       >
@@ -850,7 +873,7 @@ export default function TtsChatTab() {
           Loading available voices…
         </Text>
       )}
-    </>
+    </ScrollView>
   );
 }
 
@@ -1050,5 +1073,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: -10,
     marginBottom: 20,
+  },
+  scrollContent: {
+    paddingBottom: 140,
   },
 });

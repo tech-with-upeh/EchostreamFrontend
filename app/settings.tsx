@@ -1,6 +1,11 @@
+import { Skeleton } from "@/components/common/Skeleton";
+import ToggleRow from "@/components/common/ToggleRow";
 import SettingsRow from "@/components/settings/Settingsrow";
 import UpgradeToProCard from "@/components/Upgradetoprocard";
 import { useAppTheme } from "@/hooks/use-theme-color";
+import { getNotifPrefrence, putNotifPreference } from "@/lib/api";
+import { NotificationPreferenceResponse } from "@/lib/schema";
+import { registerForPushNotificationsAsync } from "@/lib/usePushNotifications";
 import { clearVoicePreviewCache } from "@/lib/voice";
 
 import { useAuthStore } from "@/store/auth.store";
@@ -10,12 +15,15 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -57,6 +65,65 @@ type SheetType =
   | "Language"
   | null;
 type ChangePasswordStep = "idle" | "otp" | "password" | "success";
+
+/* --------------------------------------------------------------------------
+ * Generic serialized save queue.
+ *
+ * Mirrors the pattern used on MicScreen: every write for a given domain
+ * (notifications, account/security, tiktok connect, ...) is funneled through
+ * ONE promise chain so a debounced PATCH+GET pair can never race another one
+ * for the SAME endpoint and silently clobber a change.
+ *
+ * Each settings domain gets its OWN useSaveQueue instance -> its own chain,
+ * its own pending patch, and its own save function/endpoint. That's the
+ * "room for later" bit: Account & Security and Connect TikTok each get their
+ * own `useSaveQueue(...)` call (with their own save fn) when we build them,
+ * completely independent of the notifications queue below.
+ * ------------------------------------------------------------------------ */
+function useSaveQueue<T extends object>(
+  saveFn: (patch: Partial<T>) => Promise<unknown>,
+) {
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const pending = useRef<Partial<T>>({});
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const enqueue = useCallback((task: () => Promise<void>) => {
+    chain.current = chain.current.then(task).catch(() => {});
+    return chain.current;
+  }, []);
+
+  const flush = useCallback(() => {
+    const patch = pending.current;
+    pending.current = {};
+    if (Object.keys(patch).length === 0) return Promise.resolve();
+    return enqueue(async () => {
+      try {
+        await saveFn(patch);
+      } catch (e) {
+        reportError("Failed to save preference: " + e);
+      }
+    });
+  }, [enqueue, saveFn]);
+
+  const queueSave = useCallback(
+    (patch: Partial<T>, delay = 300) => {
+      pending.current = { ...pending.current, ...patch };
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(flush, delay);
+    },
+    [flush],
+  );
+
+  // Flush anything still pending when the owning component unmounts.
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+      flush();
+    };
+  }, [flush]);
+
+  return { queueSave, flush, enqueue };
+}
 
 type SwitchProps = {
   value: boolean;
@@ -100,45 +167,7 @@ type ToggleRowProps = {
   value: boolean;
   onValueChange: (value: boolean) => void;
 };
-function ToggleRow({
-  icon,
-  title,
-  description,
-  value,
-  onValueChange,
-}: ToggleRowProps) {
-  const { theme } = useAppTheme();
-  return (
-    <View style={[styles.settingControl, { borderBottomColor: theme.outline }]}>
-      <View style={styles.settingControlLeft}>
-        <View style={[styles.controlIcon, { backgroundColor: theme.surface }]}>
-          <Ionicons name={icon} size={19} color={theme.primary} />
-        </View>
-        <View style={styles.controlText}>
-          <Text style={[styles.controlTitle, { color: theme.onSurface }]}>
-            {title}
-          </Text>
-          {description ? (
-            <Text
-              style={[
-                styles.controlDescription,
-                { color: theme.onSurfaceVariant },
-              ]}
-            >
-              {description}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      <ToggleSwitch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: theme.outline, true: theme.primaryDim }}
-        thumbColor={value ? theme.primary : theme.onSurfaceVariant}
-      />
-    </View>
-  );
-}
+
 type ActionRowProps = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -166,8 +195,8 @@ function ActionRow({
         <View style={[styles.controlIcon, { backgroundColor: theme.surface }]}>
           <Ionicons
             name={icon}
-            size={19}
-            color={danger ? DESTRUCTIVE : theme.primary}
+            size={18}
+            color={danger ? DESTRUCTIVE : theme.onSurfaceVariant}
           />
         </View>
         <View style={styles.controlText}>
@@ -296,79 +325,81 @@ function BottomSheet({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View
-        style={[
-          styles.modalRoot,
-          { paddingBottom: isTablet ? Math.max(insets.bottom, 24) : 0 },
-        ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // iOS needs this when there's a header/safe-area offset above the sheet
+        keyboardVerticalOffset={0}
       >
-        <Pressable style={styles.modalBackdrop} onPress={onClose} />
-        <Animated.View
-          entering={SlideInDown.duration(300)}
-          exiting={SlideOutDown.duration(220)}
+        <View
           style={[
-            styles.bottomSheet,
-            isTablet ? styles.bottomSheetTablet : styles.bottomSheetPhone,
-            {
-              width: isTablet ? tabletWidth : "100%",
-              maxHeight: sheetHeight,
-              backgroundColor: theme.background,
-              borderColor: theme.outline,
-              paddingBottom: isTablet
-                ? Math.max(insets.bottom, 18)
-                : Math.max(insets.bottom, 12),
-            },
+            styles.modalRoot,
+            { paddingBottom: isTablet ? Math.max(insets.bottom, 24) : 0 },
           ]}
         >
-          <View style={styles.dragArea}>
-            <View
-              style={[
-                styles.dragHandle,
-                { backgroundColor: theme.onSurfaceVariant },
-              ]}
-            />
-          </View>
-          <View
-            style={[styles.sheetHeader, { borderBottomColor: theme.outline }]}
-          >
-            <View style={styles.sheetTitleRow}>
-              <View
-                style={[
-                  styles.sheetTitleIcon,
-                  { backgroundColor: theme.surfaceVariant },
-                ]}
-              >
-                <Ionicons name={icon} size={20} color={theme.primary} />
-              </View>
-              <Text style={[styles.sheetTitle, { color: theme.onSurface }]}>
-                {title}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.closeButton,
-                {
-                  backgroundColor: theme.surfaceVariant,
-                  opacity: pressed ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Ionicons name="close" size={20} color={theme.onSurface} />
-            </Pressable>
-          </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[
-              styles.sheetContent,
-              isTablet && styles.sheetContentTablet,
+          <Pressable style={styles.modalBackdrop} onPress={onClose} />
+          <Animated.View
+            entering={SlideInDown.duration(300)}
+            exiting={SlideOutDown.duration(220)}
+            style={[
+              styles.bottomSheet,
+              isTablet ? styles.bottomSheetTablet : styles.bottomSheetPhone,
+              {
+                width: isTablet ? tabletWidth : "100%",
+                maxHeight: sheetHeight,
+                backgroundColor: theme.background,
+                borderColor: "transparent",
+                boxShadow: "0px 0px 18px #000000ef",
+                paddingBottom: isTablet
+                  ? Math.max(insets.bottom, 18)
+                  : Math.max(insets.bottom, 12),
+              },
             ]}
           >
-            {children}
-          </ScrollView>
-        </Animated.View>
-      </View>
+            <View style={styles.dragArea}>
+              <View
+                style={[
+                  styles.dragHandle,
+                  { backgroundColor: theme.onSurfaceVariant },
+                ]}
+              />
+            </View>
+            <View
+              style={[styles.sheetHeader, { borderBottomColor: theme.outline }]}
+            >
+              <View style={styles.sheetTitleRow}>
+                <View style={[styles.sheetTitleIcon, ,]}>
+                  <Ionicons name={icon} size={20} color={theme.primary} />
+                </View>
+                <Text style={[styles.sheetTitle, { color: theme.onSurface }]}>
+                  {title}
+                </Text>
+              </View>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  {
+                    opacity: pressed ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Ionicons name="close" size={20} color={theme.onSurface} />
+              </Pressable>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={[
+                styles.sheetContent,
+                isTablet && styles.sheetContentTablet,
+              ]}
+            >
+              {children}
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -378,10 +409,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [commentNotifications, setCommentNotifications] = useState(true);
-  const [systemNotifications, setSystemNotifications] = useState(true);
-  const [notificationSound, setNotificationSound] = useState(true);
+  const [isRegisteringPush, setIsRegisteringPush] = useState(false);
+
   const [biometrics, setBiometrics] = useState(false);
   const [twoFactor, setTwoFactor] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("English");
@@ -408,13 +437,14 @@ export default function SettingsScreen() {
   const forgotPassword = useAuthStore((state) => state.forgotPassword);
   const resetPassword = useAuthStore((state) => state.resetPassword);
   const user = useUserStore((state) => state.user);
-  const fullName = [user?.first_name, user?.last_name]
-    .filter(Boolean)
-    .join(" ") || "Your account";
-  const initials = [user?.first_name, user?.last_name]
-    .filter(Boolean)
-    .map((name) => name!.charAt(0).toUpperCase())
-    .join("") || "?";
+  const fullName =
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    "Your account";
+  const initials =
+    [user?.first_name, user?.last_name]
+      .filter(Boolean)
+      .map((name) => name!.charAt(0).toUpperCase())
+      .join("") || "?";
   const currentPlan = user?.plan
     ? `${user.plan.charAt(0).toUpperCase()}${user.plan.slice(1)}`
     : "Free";
@@ -440,7 +470,7 @@ export default function SettingsScreen() {
     setShowConfirmNewPassword(false);
   };
   const handleSendPasswordOtp = async () => {
-    if (isSendingPasswordOtp) return;
+    if (isSendingPasswordOtp || changePasswordStep !== "idle") return;
 
     if (!accountEmail) {
       reportError("We could not find an email address for this account.");
@@ -485,7 +515,11 @@ export default function SettingsScreen() {
 
     setIsChangingPassword(true);
     try {
-      await resetPassword(normalizedChangePasswordOtp, accountEmail, newPassword);
+      await resetPassword(
+        normalizedChangePasswordOtp,
+        accountEmail,
+        newPassword,
+      );
       resetChangePasswordForm();
       setChangePasswordStep("success");
       reportInfo("Your password has been updated.");
@@ -504,6 +538,8 @@ export default function SettingsScreen() {
       setTiktokUsername(cleanTikTokUsername);
       setIsConnectingTikTok(false);
     }, 500);
+    // TODO: when the real TikTok-connect endpoint lands, give this its own
+    // useSaveQueue<...>(saveTikTokConnection) instead of the setTimeout above.
   };
   const handleLogout = () =>
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -523,7 +559,97 @@ export default function SettingsScreen() {
         },
       },
     ]);
+
   const isTablet = width >= 768;
+  const { isDark } = useAppTheme();
+
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [isFetchingNotifPreferences, setIsFetchingNotifPreferences] =
+    useState(true);
+  const [isnotifPreferencesError, setNotifPreferencesError] = useState(false);
+  const [notifPreferences, setNotifPreferences] =
+    useState<NotificationPreferenceResponse | null>(null);
+
+  // Keep the avatar effect as it was — don't mix concerns:
+  useEffect(() => {
+    setAvatarFailed(false);
+    setAvatarLoading(!!user?.tt_image);
+  }, [user?.tt_image]);
+
+  // Separate effect for notification preferences, fetched once on mount:
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setIsFetchingNotifPreferences(true);
+      setNotifPreferencesError(false);
+      try {
+        const res = await getNotifPrefrence();
+        if (cancelled) return;
+        setNotifPreferences(res);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Error fetching notification preferences:", err);
+        reportError(err, "Unable to fetch notification preferences.");
+        setNotifPreferencesError(true);
+      } finally {
+        if (!cancelled) setIsFetchingNotifPreferences(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ------------------------- Notifications save queue ------------------------- */
+  const notifSaveFn = useCallback(
+    (patch: Partial<NotificationPreferenceResponse>) =>
+      putNotifPreference(patch),
+    [],
+  );
+  const notifSave = useSaveQueue<NotificationPreferenceResponse>(notifSaveFn);
+
+  const handleToggleNotification = useCallback(
+    (key: keyof NotificationPreferenceResponse) => async (value: boolean) => {
+      // Security alerts are always-on / not user-toggleable from the UI.
+      if (key === "account_security_enabled") return;
+
+      // Optimistic local update.
+      setNotifPreferences((prev) =>
+        prev
+          ? { ...prev, [key]: value }
+          : ({ [key]: value } as NotificationPreferenceResponse),
+      );
+
+      // Push notifications need device registration before the backend
+      // toggle actually means anything.
+      if (key === "push_enabled" && value) {
+        if (isRegisteringPush) return;
+        setIsRegisteringPush(true);
+        try {
+          const { error } = await registerForPushNotificationsAsync();
+          if (error) {
+            console.log(error);
+            reportError(error, "Unable to enable push notifications.");
+            // revert the optimistic update since registration failed
+            setNotifPreferences((prev) =>
+              prev ? { ...prev, push_enabled: false } : prev,
+            );
+            return;
+          }
+        } finally {
+          setIsRegisteringPush(false);
+        }
+      }
+
+      notifSave.queueSave({
+        [key]: value,
+      } as Partial<NotificationPreferenceResponse>);
+    },
+    [isRegisteringPush, notifSave],
+  );
 
   return (
     <SafeAreaView
@@ -591,15 +717,31 @@ export default function SettingsScreen() {
               { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: theme.primary },
-              ]}
-            >
-              <Text style={[styles.avatarInitials, { color: theme.buttonText }]}>
-                {initials}
-              </Text>
+            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+              {user?.tt_image && !avatarFailed ? (
+                <View style={styles.avatarImageWrap}>
+                  <Image
+                    source={{ uri: user.tt_image }}
+                    style={styles.avatarImage}
+                    onLoadEnd={() => setAvatarLoading(false)}
+                    onError={() => {
+                      setAvatarFailed(true);
+                      setAvatarLoading(false);
+                    }}
+                  />
+                  {avatarLoading && (
+                    <View style={StyleSheet.absoluteFill}>
+                      <Skeleton width={52} height={52} borderRadius={26} />
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text
+                  style={[styles.avatarInitials, { color: theme.buttonText }]}
+                >
+                  {initials}
+                </Text>
+              )}
             </View>
             <View style={styles.profileText}>
               <Text style={[styles.profileName, { color: theme.onSurface }]}>
@@ -618,6 +760,7 @@ export default function SettingsScreen() {
             />
           </Pressable>
         </Animated.View>
+
         <Animated.View
           entering={FadeInUp.duration(500).delay(120)}
           style={styles.creditsWrapper}
@@ -627,7 +770,9 @@ export default function SettingsScreen() {
               styles.creditsCard,
               {
                 backgroundColor: theme.surfaceVariant,
-                borderColor: theme.outline,
+                boxShadow: isDark
+                  ? "0px 0px 18px #0000004d"
+                  : "0px 0px 18px #8681814d",
               },
             ]}
           >
@@ -677,7 +822,8 @@ export default function SettingsScreen() {
               <Text
                 style={[styles.creditsUsageValue, { color: theme.onSurface }]}
               >
-                {user?.subscription_status || (isPaidUser ? "Active" : "Free plan")}
+                {user?.subscription_status ||
+                  (isPaidUser ? "Active" : "Free plan")}
               </Text>
             </View>
           </View>
@@ -690,13 +836,18 @@ export default function SettingsScreen() {
             <UpgradeToProCard onPress={() => router.push("/pricing")} />
           </Animated.View>
         )}
+
         <Animated.View
           entering={FadeInUp.duration(500).delay(240)}
           style={[
             styles.menuCard,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              borderWidth: 1,
+              boxShadow: isDark
+                ? "0px 0px 18px #0000004d"
+                : "0px 0px 18px #8681814d",
             },
             isTablet && styles.menuCardTablet,
           ]}
@@ -720,7 +871,10 @@ export default function SettingsScreen() {
               styles.logoutButton,
               {
                 backgroundColor: theme.surfaceVariant,
-                borderColor: theme.outline,
+                boxShadow: isDark
+                  ? "0px 0px 18px #0000004d"
+                  : "0px 0px 18px #8681814d",
+
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
@@ -759,7 +913,10 @@ export default function SettingsScreen() {
             styles.tiktokConnectCard,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: isDark
+                ? "0px 0px 18px #0000004d"
+                : "0px 0px 18px #8681814d",
             },
           ]}
         >
@@ -889,37 +1046,88 @@ export default function SettingsScreen() {
             styles.controlGroup,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: "0px 0px 8px #00000029",
             },
           ]}
         >
           <ToggleRow
-            icon="notifications-outline"
-            title="Push Notifications"
-            description="Receive notifications from EchoStream AI."
-            value={pushNotifications}
-            onValueChange={setPushNotifications}
+            icon={
+              <Ionicons
+                name={
+                  isnotifPreferencesError
+                    ? "alert-circle-outline"
+                    : "notifications-outline"
+                }
+                size={18}
+                color={theme.onSurfaceVariant}
+              />
+            }
+            label="Push Notifications"
+            subtitle="Receive notifications from EchoStream AI."
+            value={notifPreferences?.push_enabled ?? false}
+            onValueChange={handleToggleNotification("push_enabled")}
+            loadingState={isFetchingNotifPreferences || isRegisteringPush}
+          />
+
+          <ToggleRow
+            icon={
+              <Ionicons
+                name={
+                  isnotifPreferencesError
+                    ? "alert-circle-outline"
+                    : "card-outline"
+                }
+                size={18}
+                color={theme.onSurfaceVariant}
+              />
+            }
+            label="Billing Notifications"
+            subtitle="Receive notifications About your current plan and billing."
+            value={notifPreferences?.subscription_enabled ?? false}
+            onValueChange={handleToggleNotification("subscription_enabled")}
+            loadingState={isFetchingNotifPreferences}
+            disabled={user?.plan === "starter"}
+          />
+
+          <ToggleRow
+            icon={
+              <Ionicons
+                name={
+                  isnotifPreferencesError
+                    ? "alert-circle-outline"
+                    : "logo-tiktok"
+                }
+                size={18}
+                color={theme.onSurfaceVariant}
+              />
+            }
+            label="Streaming Reminders"
+            subtitle="Receive reminders for your upcoming live streams."
+            value={notifPreferences?.streaming_reminders_enabled ?? false}
+            onValueChange={handleToggleNotification(
+              "streaming_reminders_enabled",
+            )}
+            loadingState={isFetchingNotifPreferences}
           />
           <ToggleRow
-            icon="chatbubble-outline"
-            title="Comment Notifications"
-            description="Get notified when new comments are available."
-            value={commentNotifications}
-            onValueChange={setCommentNotifications}
-          />
-          <ToggleRow
-            icon="information-circle-outline"
-            title="System Notifications"
-            description="Important updates and account information."
-            value={systemNotifications}
-            onValueChange={setSystemNotifications}
-          />
-          <ToggleRow
-            icon="volume-high-outline"
-            title="Notification Sound"
-            description="Play a sound when a notification arrives."
-            value={notificationSound}
-            onValueChange={setNotificationSound}
+            icon={
+              <Ionicons
+                name={
+                  isnotifPreferencesError
+                    ? "alert-circle-outline"
+                    : "lock-closed-outline"
+                }
+                size={18}
+                color={theme.onSurfaceVariant}
+              />
+            }
+            label="Security Alerts"
+            subtitle="Receive notifications about your account security (Always on)."
+            value={notifPreferences?.account_security_enabled ?? true}
+            onValueChange={handleToggleNotification("account_security_enabled")}
+            loadingState={isFetchingNotifPreferences}
+            disabled
           />
         </View>
       </BottomSheet>
@@ -937,7 +1145,10 @@ export default function SettingsScreen() {
             styles.controlGroup,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: isDark
+                ? "0px 0px 18px #0000004d"
+                : "0px 0px 18px #8681814d",
             },
           ]}
         >
@@ -954,25 +1165,20 @@ export default function SettingsScreen() {
             }}
           />
           <ToggleRow
-            icon="finger-print-outline"
-            title="Biometric Authentication"
-            description="Use Face ID or fingerprint to unlock the app."
+            icon={
+              <Ionicons
+                name="finger-print-outline"
+                size={18}
+                color={theme.onSurfaceVariant}
+              />
+            }
+            label="Biometric Authentication"
+            subtitle="Use Face ID or fingerprint to unlock the app."
             value={biometrics}
             onValueChange={setBiometrics}
           />
-          <ToggleRow
-            icon="shield-outline"
-            title="Two-Factor Authentication"
-            description="Add another layer of protection to your account."
-            value={twoFactor}
-            onValueChange={setTwoFactor}
-          />
-          <ActionRow
-            icon="phone-portrait-outline"
-            title="Active Sessions"
-            description="Review devices currently signed into your account."
-            onPress={() => showComingSoon("Active Sessions")}
-          />
+          {/* TODO: biometrics/2FA need their own useSaveQueue(saveAccountSecurity)
+              hitting an /account/security-style endpoint once it exists. */}
         </View>
         {changePasswordStep !== "idle" ? (
           <View
@@ -980,7 +1186,10 @@ export default function SettingsScreen() {
               styles.passwordFlowCard,
               {
                 backgroundColor: theme.surfaceVariant,
-                borderColor: theme.outline,
+                borderColor: "transparent",
+                boxShadow: isDark
+                  ? "0px 0px 18px #0000004d"
+                  : "0px 0px 18px #8681814d",
               },
             ]}
           >
@@ -1168,9 +1377,7 @@ export default function SettingsScreen() {
                     style={[styles.passwordInput, { color: theme.onSurface }]}
                   />
                   <Pressable
-                    onPress={() =>
-                      setShowConfirmNewPassword((value) => !value)
-                    }
+                    onPress={() => setShowConfirmNewPassword((value) => !value)}
                     hitSlop={8}
                   >
                     <Ionicons
@@ -1265,7 +1472,10 @@ export default function SettingsScreen() {
             styles.securityBadge,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: isDark
+                ? "0px 0px 18px #0000004d"
+                : "0px 0px 18px #8681814d",
             },
           ]}
         >
@@ -1297,59 +1507,73 @@ export default function SettingsScreen() {
         <Text style={[styles.sheetIntro, { color: theme.onSurfaceVariant }]}>
           Manage your EchoStream AI plan and subscription.
         </Text>
-        <View
-          style={[
-            styles.planCard,
-            {
-              backgroundColor: theme.surfaceVariant,
-              borderColor: theme.primary,
-            },
-          ]}
+        <Animated.View
+          entering={FadeInUp.duration(500).delay(120)}
+          style={styles.creditsWrapper}
         >
-          <View style={styles.planHeader}>
-            <View>
-              <Text
-                style={[styles.planLabel, { color: theme.onSurfaceVariant }]}
-              >
-                CURRENT PLAN
-              </Text>
-              <Text style={[styles.planName, { color: theme.onSurface }]}>
-                Free
-              </Text>
-            </View>
-            <View
-              style={[styles.planBadge, { backgroundColor: theme.surface }]}
-            >
-              <Ionicons name="sparkles" size={15} color={theme.primary} />
-              <Text style={[styles.planBadgeText, { color: theme.primary }]}>
-                FREE
-              </Text>
-            </View>
-          </View>
           <View
-            style={[styles.usageDivider, { backgroundColor: theme.outline }]}
-          />
-          <View style={styles.usageRow}>
-            <Text
-              style={[styles.usageLabel, { color: theme.onSurfaceVariant }]}
-            >
-              Monthly usage
-            </Text>
-            <Text style={[styles.usageValue, { color: theme.onSurface }]}>
-              0 / 100
-            </Text>
-          </View>
-          <View
-            style={[styles.progressTrack, { backgroundColor: theme.outline }]}
+            style={[
+              styles.creditsCard,
+              {
+                backgroundColor: theme.surfaceVariant,
+                boxShadow: isDark
+                  ? "0px 0px 18px #0000004d"
+                  : "0px 0px 18px #8681814d",
+              },
+            ]}
           >
+            <View style={styles.creditsHeader}>
+              <View>
+                <Text
+                  style={[
+                    styles.creditsLabel,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  CURRENT PLAN
+                </Text>
+                <Text style={[styles.creditsTitle, { color: theme.onSurface }]}>
+                  {currentPlan}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.creditsBadge,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Ionicons name="flash" size={15} color={theme.primary} />
+                <Text
+                  style={[styles.creditsBadgeText, { color: theme.primary }]}
+                >
+                  {isPaidUser ? "PAID" : "FREE"}
+                </Text>
+              </View>
+            </View>
             <View
               style={[
-                styles.progressFill,
-                { backgroundColor: theme.primary, width: "2%" },
+                styles.creditsDivider,
+                { backgroundColor: theme.outline },
               ]}
             />
+            <View style={styles.creditsUsageRow}>
+              <Text
+                style={[
+                  styles.creditsUsageLabel,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                Plan status
+              </Text>
+              <Text
+                style={[styles.creditsUsageValue, { color: theme.onSurface }]}
+              >
+                {user?.subscription_status ||
+                  (isPaidUser ? "Active" : "Free plan")}
+              </Text>
+            </View>
           </View>
-        </View>
+        </Animated.View>
         <Pressable
           onPress={() => {
             closeSheet();
@@ -1392,7 +1616,10 @@ export default function SettingsScreen() {
             styles.controlGroup,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: isDark
+                ? "0px 0px 18px #0000004d"
+                : "0px 0px 18px #8681814d",
             },
           ]}
         >
@@ -1400,13 +1627,19 @@ export default function SettingsScreen() {
             icon="help-circle-outline"
             title="Help Center"
             description="Browse frequently asked questions and guides."
-            onPress={() => showComingSoon("Help Center")}
+            onPress={() => {
+              closeSheet();
+              router.push("/help");
+            }}
           />
           <ActionRow
             icon="chatbubbles-outline"
             title="Contact Support"
             description="Talk to our support team."
-            onPress={() => showComingSoon("Contact Support")}
+            onPress={() => {
+              closeSheet();
+              router.push("/support");
+            }}
           />
           <ActionRow
             icon="bug-outline"
@@ -1426,7 +1659,8 @@ export default function SettingsScreen() {
             styles.supportFooter,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderColor: "transparent",
+              boxShadow: "0px 0px 10px #00000041",
             },
           ]}
         >
@@ -1616,13 +1850,30 @@ const styles = StyleSheet.create({
     gap: 14,
     marginBottom: 20,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarImage: { width: 52, height: 52, borderRadius: 26 },
   avatarInitials: { fontSize: 17, fontWeight: "800" },
   profileText: { flex: 1 },
   profileName: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
   profileEmail: { fontSize: 12.5 },
   creditsWrapper: { marginBottom: 20 },
-  creditsCard: { borderRadius: 18, borderWidth: 1, padding: 18 },
+  creditsCard: { borderRadius: 18, padding: 18 },
   creditsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1658,7 +1909,6 @@ const styles = StyleSheet.create({
   proWrapper: { marginBottom: 24 },
   menuCard: {
     borderRadius: 18,
-    borderWidth: 1,
     paddingHorizontal: 16,
     marginBottom: 20,
     overflow: "hidden",
@@ -1672,7 +1922,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 15,
     borderRadius: 14,
-    borderWidth: 1,
   },
   logoutText: { fontSize: 15, fontWeight: "700" },
   version: { fontSize: 12, textAlign: "center" },
@@ -1782,12 +2031,12 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   controlIcon: {
-    width: 38,
-    height: 38,
+    width: 28,
+    height: 28,
     borderRadius: 11,
     alignItems: "center",
+    paddingRight: 8,
     justifyContent: "center",
-    marginRight: 12,
   },
   controlText: { flex: 1 },
   controlTitle: { fontSize: 14, fontWeight: "700", marginBottom: 3 },

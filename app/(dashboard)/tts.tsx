@@ -3,7 +3,7 @@ import { useAppTheme } from "@/hooks/use-theme-color";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TtsChatTab from "../../components/dashboard/ttschat";
@@ -63,13 +63,21 @@ export default function TtsScreen() {
         </Text>
       </Animated.View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.scrollContent}>
         <Animated.View
           entering={FadeInDown.duration(500).delay(80)}
-          style={styles.tabsWrapper}
+          style={[
+            styles.tabsWrapper,
+            {
+              backgroundColor: theme.surfaceVariant,
+              borderRadius: 25,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
+            },
+          ]}
         >
           <SegmentedTabs
             tabs={["Text to speech Chat", "Text to speech Gifts"]}
@@ -79,7 +87,7 @@ export default function TtsScreen() {
         </Animated.View>
 
         {activeTab === 0 ? <TtsChatTab /> : <TtsGiftTab />}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

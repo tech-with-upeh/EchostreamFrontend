@@ -199,6 +199,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 999,
     elevation: 999,
+    height: "100%", // don't block touches to underlying content
     alignItems: "center",
     gap: 10,
   },

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "32481246345",
+    "project_id": "echostream-f1b1e",
+    "storage_bucket": "echostream-f1b1e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:32481246345:android:d85788b2b696bdfc01da58",
+        "android_client_info": {
+          "package_name": "com.utechit.echostreams"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8WtONNEEJ6PpaZMKXO_dKXlI06-6Uyak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

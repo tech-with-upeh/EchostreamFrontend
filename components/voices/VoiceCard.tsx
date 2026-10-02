@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/hooks/use-theme-color";
 import { deriveVoiceInfo, parseLocale } from "@/lib/helpers";
 import { ApiError, getAvatarImage } from "@/lib/pollination";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,8 +23,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { Skeleton } from "../common/Skeleton";
 
-// Premium accent — kept distinct from `theme.primary` so "crown = premium"
-// reads as its own signal rather than blending into your action color.
 const PREMIUM_ACCENT = "#FFB961";
 
 type Gender = "Male" | "Female" | "Non-binary";
@@ -34,7 +33,18 @@ export interface Voice {
   gender: Gender;
   isPremium?: boolean | false;
   avatarTint?: string;
+  // Edge voices are keyed and derived from this (e.g. "en-US-JennyNeural").
+  // Fish voices don't have this format — leave it as the fish id/empty and
+  // rely on the fish-native fields below instead.
   short_name: string;
+
+  // Set this to "fish" to use the fields below directly instead of
+  // deriving everything from `short_name`. Defaults to "edge" behavior.
+  provider?: "edge" | "fish";
+  description?: string;
+  languageLabel?: string;
+  countryCode?: string;
+  avatarUri?: string;
 }
 
 interface VoiceCardProps {
@@ -44,70 +54,15 @@ interface VoiceCardProps {
   isPlayingPreviewLoading: boolean;
   onToggleFavorite: () => void;
   onTogglePlay: () => void;
-  onSelect: () => void;
+  onSelect: () => void | Promise<void>;
   theme: any;
+  // Plan-gating: whether the *current user's plan* can select this voice.
+  // Not a property of the voice itself — the same fish voice is locked for
+  // a starter user and unlocked for essential/pro, so this comes from the
+  // caller (HomeScreen), not from `voice`.
+  locked?: boolean;
+  onUpgradePress?: () => void;
 }
-
-// export default function VoiceCard({
-//   voice,
-//   favorited,
-//   isPlaying,
-//   onToggleFavorite,
-//   onTogglePlay,
-//   onSelect,
-// }: VoiceCardProps) {
-//   const { theme } = useAppTheme();
-
-//   return (
-//     <View style={[styles.card, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
-//       {voice.isPremium && (
-//         <View style={styles.crownBadge}>
-//           <Ionicons name="ribbon" size={16} color={PREMIUM_ACCENT} />
-//         </View>
-//       )}
-
-//       <Pressable onPress={onToggleFavorite} style={[styles.heartButton, { backgroundColor: theme.surface }]} hitSlop={6}>
-//         <Ionicons
-//           name={favorited ? 'heart' : 'heart-outline'}
-//           size={14}
-//           color={favorited ? theme.primary : theme.onSurfaceVariant}
-//         />
-//       </Pressable>
-
-//       <View style={[styles.avatarRing, { backgroundColor: voice.avatarTint }]}>
-//         <Image source={{ uri: voice.avatar }} style={styles.avatar} />
-//       </View>
-
-//       <View style={styles.nameRow}>
-//         <Text style={[styles.name, { color: theme.onSurface }]} numberOfLines={1}>
-//           {voice.name} ({voice.gender})
-//         </Text>
-//         <Text style={styles.flag}>{voice.flag}</Text>
-//       </View>
-//       <Text style={[styles.style, { color: theme.onSurfaceVariant }]}>{voice.style}</Text>
-
-//       <View style={styles.footer}>
-//         {isPlaying ? (
-//           <Pressable
-//             onPress={onTogglePlay}
-//             style={[styles.playingPill, { backgroundColor: theme.surface, borderColor: theme.outline }]}
-//           >
-//             <Ionicons name="pause" size={13} color={theme.primary} />
-//             <MiniWave color={theme.primary} />
-//           </Pressable>
-//         ) : (
-//           <Pressable onPress={onTogglePlay} style={[styles.playButton, { borderColor: theme.outline }]}>
-//             <Ionicons name="play" size={13} color={theme.onSurface} />
-//           </Pressable>
-//         )}
-
-//         <Pressable onPress={onSelect} style={[styles.selectButton, { backgroundColor: theme.primary }]}>
-//           <Text style={[styles.selectButtonText, { color: theme.buttonText }]}>Select</Text>
-//         </Pressable>
-//       </View>
-//     </View>
-//   );
-// }
 
 export default function VoiceCard({
   voice,
@@ -118,17 +73,31 @@ export default function VoiceCard({
   onTogglePlay,
   onSelect,
   theme,
+  locked = false,
+  onUpgradePress,
 }: VoiceCardProps) {
-  // --- 1. Pure Functional/State Implementations from Component 1 ---
-  const [gender, setGender] = useState<Gender>(voice.gender);
-  const [description, setDescription] = useState("Neural");
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const isFish = voice.provider === "fish";
+  const { isDark } = useAppTheme();
+  const [gender] = useState<Gender>(voice.gender);
+  const [description, setDescription] = useState(
+    isFish ? (voice.description ?? "") : "Neural",
+  );
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    isFish ? (voice.avatarUri ?? null) : null,
+  );
   const [loading, setLoading] = useState(false);
+  const [loadingSelect, setLoadingSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [country, setCountry] = useState<string>("");
-  const [Lang, setLang] = useState<string>("");
+  const [Lang, setLang] = useState<string>(
+    isFish ? (voice.languageLabel ?? "") : "",
+  );
 
+  // Fish voices already carry name/description/language/avatar as real
+  // data — no derivation or AI avatar generation needed for them.
   useEffect(() => {
+    if (isFish) return;
+
     let cancelled = false;
     const { language, country } = parseLocale(
       deriveVoiceInfo(voice.short_name).languageCode +
@@ -175,28 +144,61 @@ export default function VoiceCard({
     return () => {
       cancelled = true;
     };
-  }, [voice.short_name]);
+  }, [voice.short_name, isFish]);
 
-  // Helper properties derived from Component 1's processing
-  const computedName = deriveVoiceInfo(voice.short_name).name.slice(0, -6);
-  const countryCode = deriveVoiceInfo(voice.short_name).countryCode;
+  const computedName = isFish
+    ? (voice.name ?? "")
+    : deriveVoiceInfo(voice.short_name).name.slice(0, -6);
 
-  // --- 2. Render Interface from Component 2 ---
+  const countryCode = isFish
+    ? (voice.countryCode ?? "")
+    : deriveVoiceInfo(voice.short_name).countryCode;
+
+  const handlePrimaryAction = async () => {
+    if (loadingSelect) return; // ignore double taps
+
+    if (locked) {
+      onUpgradePress?.();
+      return;
+    }
+
+    setLoadingSelect(true);
+    try {
+      await onSelect();
+    } finally {
+      setLoadingSelect(false);
+    }
+  };
+
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: theme.surfaceVariant, borderColor: theme.outline },
+        {
+          backgroundColor: theme.surfaceVariant,
+          borderColor: "transparent",
+          boxShadow: isDark
+            ? "0px 0px 18px #0000004d"
+            : "0px 0px 18px #8681814d",
+        },
       ]}
     >
-      {/* Premium Badge layout condition from Component 2 */}
-      {voice.isPremium && (
-        <View style={styles.crownBadge}>
-          <Ionicons name="ribbon" size={16} color={PREMIUM_ACCENT} />
+      {locked ? (
+        <View style={[styles.lockBadge, { backgroundColor: theme.surface }]}>
+          <Ionicons
+            name="lock-closed"
+            size={12}
+            color={theme.onSurfaceVariant}
+          />
         </View>
+      ) : (
+        voice.isPremium && (
+          <View style={styles.crownBadge}>
+            <Ionicons name="ribbon" size={16} color={PREMIUM_ACCENT} />
+          </View>
+        )
       )}
 
-      {/* Favorite Button Layout */}
       <Pressable
         onPress={onToggleFavorite}
         style={[styles.heartButton, { backgroundColor: theme.surface }]}
@@ -209,11 +211,11 @@ export default function VoiceCard({
         />
       </Pressable>
 
-      {/* Avatar Container with Conditional Loading State from Component 1 */}
       <View
         style={[
           styles.avatarRing,
           { backgroundColor: voice.avatarTint || "transparent" },
+          locked && styles.avatarRingLocked,
         ]}
       >
         {loading ? (
@@ -221,12 +223,11 @@ export default function VoiceCard({
         ) : (
           <Image
             source={{ uri: avatarUri || "https://i.pravatar.cc/150?img=55" }}
-            style={styles.avatar}
+            style={[styles.avatar, locked && styles.avatarLocked]}
           />
         )}
       </View>
 
-      {/* Text Rows using formatting combinations */}
       <View style={styles.nameRow}>
         <Text
           style={[styles.name, { color: theme.onSurface }]}
@@ -235,7 +236,6 @@ export default function VoiceCard({
           {computedName} ({voice.gender})
         </Text>
 
-        {/* Rendered Native Country Flag component in place of text emoji */}
         {countryCode && (
           <CountryFlag
             isoCode={countryCode}
@@ -245,18 +245,24 @@ export default function VoiceCard({
         )}
       </View>
 
-      {/* Meta descriptions containing parsed languages */}
-      <Text style={[styles.style, { color: theme.onSurfaceVariant }]}>
-        {description} · {Lang}
+      <Text
+        style={[styles.style, { color: theme.onSurfaceVariant }]}
+        numberOfLines={1}
+      >
+        {locked
+          ? "Essential & Pro"
+          : `${description ? description : "Neutral"} · ${Lang}`}
       </Text>
 
-      {/* Footer Play and Select Actions with Active States */}
       <View style={styles.footer}>
         {isPlayingPreviewLoading ? (
           <View
             style={[
               styles.playingPill,
-              { backgroundColor: theme.surface, borderColor: theme.outline },
+              {
+                backgroundColor: theme.surface,
+                borderWidth: 0,
+              },
             ]}
           >
             <ActivityIndicator size="small" color={theme.primary} />
@@ -266,7 +272,10 @@ export default function VoiceCard({
             onPress={onTogglePlay}
             style={[
               styles.playingPill,
-              { backgroundColor: theme.surface, borderColor: theme.outline },
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.outline,
+              },
             ]}
           >
             <Ionicons name="pause" size={13} color={theme.primary} />
@@ -275,26 +284,46 @@ export default function VoiceCard({
         ) : (
           <Pressable
             onPress={onTogglePlay}
-            style={[styles.playButton, { borderColor: theme.outline }]}
+            style={[
+              styles.playButton,
+              { backgroundColor: locked ? theme.primaryDim : theme.primary },
+            ]}
           >
-            <Ionicons name="play" size={13} color={theme.onSurface} />
+            <Ionicons name="play" size={13} color={theme.buttonText} />
           </Pressable>
         )}
 
         <Pressable
-          onPress={onSelect}
-          style={[styles.selectButton, { backgroundColor: theme.primary }]}
+          onPress={handlePrimaryAction}
+          disabled={loadingSelect}
+          style={[
+            styles.selectButton,
+            { backgroundColor: locked ? theme.primaryDim : theme.primary },
+          ]}
         >
-          <Text style={[styles.selectButtonText, { color: theme.buttonText }]}>
-            Select
-          </Text>
+          {locked ? (
+            <View style={styles.upgradeRow}>
+              <Ionicons name="lock-closed" size={11} color={theme.buttonText} />
+              <Text
+                style={[styles.selectButtonText, { color: theme.buttonText }]}
+              >
+                Upgrade
+              </Text>
+            </View>
+          ) : loadingSelect ? (
+            <ActivityIndicator size="small" color={theme.buttonText} />
+          ) : (
+            <Text
+              style={[styles.selectButtonText, { color: theme.buttonText }]}
+            >
+              Select
+            </Text>
+          )}
         </Pressable>
       </View>
     </View>
   );
 }
-
-// ---------- Mini waveform (shown inline while a card is previewing) ----------
 
 function MiniWave({ color }: { color: string }) {
   return (
@@ -336,16 +365,24 @@ function MiniWaveBar({ index, color }: { index: number; color: string }) {
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 14,
+    width: 164,
+    minWidth: 150,
+    maxWidth: 180,
+    borderRadius: 18,
+
+    padding: 16,
     alignItems: "center",
   },
-  crownBadge: {
+  crownBadge: { position: "absolute", top: 10, left: 10, zIndex: 1 },
+  lockBadge: {
     position: "absolute",
     top: 10,
     left: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1,
   },
   heartButton: {
@@ -368,10 +405,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  avatarRingLocked: {
+    opacity: 0.5,
+  },
+  avatar: { width: 56, height: 56, borderRadius: 28 },
+  avatarLocked: {
+    opacity: 0.6,
   },
   nameRow: {
     flexDirection: "row",
@@ -382,17 +421,12 @@ const styles = StyleSheet.create({
   name: { fontSize: 13, fontWeight: "700" },
   flag: { fontSize: 12 },
   style: { fontSize: 11.5, marginBottom: 14 },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    width: "100%",
-  },
+  footer: { flexDirection: "row", alignItems: "center", gap: 8, width: "100%" },
   playButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
+
     alignItems: "center",
     justifyContent: "center",
   },
@@ -404,7 +438,6 @@ const styles = StyleSheet.create({
     height: 32,
     paddingHorizontal: 10,
     borderRadius: 16,
-    borderWidth: 1,
   },
   miniWaveRow: {
     flexDirection: "row",
@@ -412,10 +445,7 @@ const styles = StyleSheet.create({
     gap: 2,
     height: 14,
   },
-  miniWaveBar: {
-    width: 2.5,
-    borderRadius: 2,
-  },
+  miniWaveBar: { width: 2.5, borderRadius: 2 },
   selectButton: {
     flex: 1,
     paddingVertical: 8,
@@ -423,8 +453,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   selectButtonText: { fontSize: 12, fontWeight: "700" },
-  flagOffset: {
-    marginLeft: 6,
-    borderRadius: 2, // Cleans up flag corners natively
-  },
+  upgradeRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  flagOffset: { marginLeft: 6, borderRadius: 2 },
 });

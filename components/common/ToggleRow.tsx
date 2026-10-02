@@ -1,12 +1,18 @@
 import { useAppTheme } from "@/hooks/use-theme-color";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 
 interface ToggleRowProps {
   icon?: React.ReactNode;
   label: string;
-  /** Shows the premium diamond and locks (disables) the row. */
   isPremium?: boolean;
   subtitle?: string;
   value: boolean;
@@ -15,6 +21,7 @@ interface ToggleRowProps {
   showChevron?: boolean;
   disabled?: boolean;
   bold?: boolean;
+  loadingState?: boolean;
 }
 
 export default function ToggleRow({
@@ -28,6 +35,7 @@ export default function ToggleRow({
   showChevron,
   disabled,
   bold,
+  loadingState,
 }: ToggleRowProps) {
   const { theme } = useAppTheme();
 
@@ -49,7 +57,9 @@ export default function ToggleRow({
             >
               {label}
             </Text>
-            {isPremium && <Ionicons name="diamond" size={11} color="#f39b31" />}
+            {isPremium && (
+              <Ionicons name="lock-closed" size={11} color="#f39b31" />
+            )}
           </View>
           {subtitle ? (
             <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
@@ -66,14 +76,27 @@ export default function ToggleRow({
         )}
       </View>
 
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        disabled={isDisabled}
-        trackColor={{ false: theme.outline, true: theme.primary }}
-        thumbColor={theme.surface}
-        ios_backgroundColor={theme.outline}
-      />
+      {loadingState ? (
+        <View
+          style={{
+            width: 40,
+            height: 20,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator color={theme.onSurface} />
+        </View>
+      ) : (
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          disabled={isDisabled}
+          trackColor={{ false: theme.outline, true: theme.primary }}
+          thumbColor={theme.surface}
+          ios_backgroundColor={theme.outline}
+        />
+      )}
     </View>
   );
 

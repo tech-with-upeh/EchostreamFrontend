@@ -1,7 +1,7 @@
-import { useAppTheme } from '@/hooks/use-theme-color';
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { useAppTheme } from "@/hooks/use-theme-color";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, TextInput, View } from "react-native";
 
 interface SearchBarProps {
   value: string;
@@ -9,11 +9,28 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export default function SearchBar({ value, onChangeText, placeholder = 'Search by Voice Name' }: SearchBarProps) {
+export default function SearchBar({
+  value,
+  onChangeText,
+  placeholder = "Search by Voice Name",
+}: SearchBarProps) {
   const { theme } = useAppTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.surfaceVariant, borderColor: theme.outline }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.surfaceVariant,
+          borderWidth: 0,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          elevation: 5,
+        },
+      ]}
+    >
       <Ionicons name="search" size={18} color={theme.onSurfaceVariant} />
       <TextInput
         value={value}
@@ -28,10 +45,10 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Search b
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
-    borderWidth: 1,
+    borderWidth: 0,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,

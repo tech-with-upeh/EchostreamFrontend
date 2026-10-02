@@ -1,42 +1,67 @@
 // app/_layout.tsx
-import ErrorOverlay from "@/components/common/ErrorOverlay";
-import { installConsoleReporter, reportError } from "@/store/error.store";
 import { useAuthStore } from "@/store/auth.store";
 import { useUserStore } from "@/store/user.store";
 import { Geist_500Medium } from "@expo-google-fonts/geist";
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useFonts } from "expo-font";
-import { Stack, type ErrorBoundaryProps, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-installConsoleReporter();
+//installConsoleReporter();
 
-export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
-  useEffect(() => {
-    reportError(error);
-  }, [error]);
+// export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+//   // useEffect(() => {
+//   //   reportError(error);
+//   // }, [error]);
 
-  return (
-    <View style={styles.fallback}>
-      <ErrorOverlay />
-      <Text style={styles.fallbackTitle}>Something went wrong</Text>
-      <Text style={styles.fallbackMessage}>{error.message}</Text>
-      <Pressable onPress={() => void retry()} style={styles.retryButton}>
-        <Text style={styles.retryText}>Try again</Text>
-      </Pressable>
-    </View>
-  );
-}
+//   useEffect(() => {
+//     console.error("🚨 ROUTE ERROR:", error);
+//     reportError(error);
+//   }, [error]);
+
+//   return (
+//     <View style={styles.fallback}>
+//       <ErrorOverlay />
+//       <Text style={styles.fallbackTitle}>Something went wrong</Text>
+//       <Text style={styles.fallbackMessage}>{error.message}</Text>
+//       <Pressable onPress={() => void retry()} style={styles.retryButton}>
+//         <Text style={styles.retryText}>Try again</Text>
+//       </Pressable>
+//     </View>
+//   );
+// }
 
 const styles = StyleSheet.create({
-  fallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#101114" },
-  fallbackTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  fallbackMessage: { color: "#B9BEC8", fontSize: 14, textAlign: "center", marginBottom: 20 },
-  retryButton: { backgroundColor: "#7C5CFC", borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12 },
+  fallback: {
+    flex: 1,
+    height: 500,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: "#101114",
+  },
+  fallbackTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  fallbackMessage: {
+    color: "#B9BEC8",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: "#7C5CFC",
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
   retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 });
 
@@ -61,9 +86,10 @@ function AuthRedirect() {
   useEffect(() => {
     if (!isInitialized) return;
 
-    const firstSegment = segments[0];
+    const firstSegment: string | undefined = segments[0];
     const inAuth = firstSegment === "(auth)";
     const inDashboard = firstSegment === "(dashboard)";
+
     const isRoot = !firstSegment || firstSegment === "index";
 
     if (isAuthenticated && (inAuth || isRoot)) {
@@ -119,8 +145,12 @@ export default function RootLayout() {
         <Stack.Screen name="voice-select" options={{ headerShown: false }} />
         <Stack.Screen name="sound-alert" options={{ headerShown: false }} />
         <Stack.Screen name="verify-otp" options={{ headerShown: false }} />
+        <Stack.Screen name="voice-samples" options={{ headerShown: false }} />
+        <Stack.Screen name="help" options={{ headerShown: false }} />
+        <Stack.Screen name="livechat" options={{ headerShown: false }} />
+        <Stack.Screen name="support" options={{ headerShown: false }} />
       </Stack>
-      <ErrorOverlay />
+      {/* <ErrorOverlay /> */}
     </>
   );
 }

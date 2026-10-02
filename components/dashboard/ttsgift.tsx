@@ -1,3 +1,5 @@
+import NotFoundLight from "@/assets/images/notfound-light.png";
+import NotFound from "@/assets/images/notfound.png";
 import BottomSheet from "@/components/common/bottomSheet";
 import PremiumBanner from "@/components/common/Premiumbanner";
 import { Skeleton } from "@/components/common/Skeleton";
@@ -113,6 +115,7 @@ function createDefaultAlertConfig(
 
 export default function TtsGiftTab() {
   const { theme } = useAppTheme();
+  const { isDark } = useAppTheme();
   const router = useRouter();
 
   const user = useUserStore((state) => state.user);
@@ -182,8 +185,8 @@ export default function TtsGiftTab() {
   const [refreshing, setRefreshing] = useState(false);
 
   // ------------------------------------------------------------
-  // Queued preference saving (base alerts: like/follow/any-gift,
-  // plus toggling the enabled state of an already-added gift)
+  // Queued preference saving (base alerts: like/follow/any-gift only —
+  // gift-* keys are never sent through this path; see toggleAlert)
   // ------------------------------------------------------------
 
   const pendingEventsRef = React.useRef<PreferenceEvents | null>(null);
@@ -209,13 +212,13 @@ export default function TtsGiftTab() {
       }
 
       const next: Preferences = {
-        ...current,
         events: nextEvents,
       };
 
       store.setPreferences(next);
 
       try {
+        console.log(next);
         const saved = await updatePreferences(next);
 
         if (pendingEventsRef.current === null) {
@@ -235,9 +238,13 @@ export default function TtsGiftTab() {
     });
   }, []);
 
+  // `next` here must be the full, correct set of base events
+  // (like/follow/gift) and nothing else — see toggleAlert, which builds
+  // this from `preferences.events`, never from the gift-augmented
+  // `alerts` display state.
   const saveEvents = useCallback(
     (next: PreferenceEvents) => {
-      setAlerts(next);
+      setAlerts((prev) => ({ ...prev, ...next }));
 
       pendingEventsRef.current = next;
 
@@ -303,11 +310,15 @@ export default function TtsGiftTab() {
   // ------------------------------------------------------------
   // Merge:
   //
-  // preferences.events
+  // preferences.events (like/follow/gift — the only 3 keys that ever
+  // belong in preferences.events)
   // +
-  // individual gift preferences
+  // individual gift preferences (gift-* keys, from a separate endpoint)
   //
-  // into one PreferenceEvents object for the UI.
+  // into one PreferenceEvents object for the UI ONLY. This merged object
+  // must never be spread back into a PUT /v1/preferences payload — that
+  // was the bug: doing so duplicated every gift-* entry into
+  // preferences.events on the server. See toggleAlert for the fix.
   // ------------------------------------------------------------
 
   useEffect(() => {
@@ -490,15 +501,25 @@ export default function TtsGiftTab() {
         return;
       }
 
-      saveEvents({
-        ...alerts,
-        [key]: {
-          ...current,
-          enabled: nextEnabled,
-        },
-      });
+      // Base branch: preferences.events must only ever contain the 3 base
+      // keys (like/follow/gift). Build the payload from the authoritative
+      // server-backed base events — `preferences?.events` — never from
+      // `alerts`, which also holds every gift-* entry merged in purely for
+      // display. Spreading `alerts` here was the bug: it duplicated every
+      // individual gift config into preferences.events on every base
+      // toggle, clobbering the split between the two endpoints.
+      const baseEvents: PreferenceEvents = {};
+
+      for (const baseKey of BASE_ALERT_ORDER) {
+        baseEvents[baseKey] =
+          preferences?.events?.[baseKey] ?? createDefaultAlertConfig(baseKey);
+      }
+
+      baseEvents[key] = { ...current, enabled: nextEnabled };
+
+      saveEvents(baseEvents);
     },
-    [alerts, saveEvents, putGiftPreference, deleteGiftPreference],
+    [alerts, preferences, saveEvents, putGiftPreference, deleteGiftPreference],
   );
 
   // ------------------------------------------------------------
@@ -550,6 +571,7 @@ export default function TtsGiftTab() {
     }
 
     setGiftQuery("");
+    setAlertQuery("");
     setGiftSheetVisible(true);
   }, [atFreeAlertLimit, router]);
 
@@ -617,6 +639,7 @@ export default function TtsGiftTab() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -637,9 +660,15 @@ export default function TtsGiftTab() {
         <View
           style={[
             styles.card,
+
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderWidth: 0,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
               marginBottom: 14,
             },
           ]}
@@ -659,123 +688,185 @@ export default function TtsGiftTab() {
             styles.card,
             {
               backgroundColor: theme.surfaceVariant,
-              borderColor: theme.outline,
+              borderWidth: 0,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
             },
           ]}
         >
-          {filteredKeys.map((key, index) => {
-            const isLastRow = index < filteredKeys.length - 1;
-            const isGiftKey = !isBaseAlertKey(key);
+          {filteredKeys.length === 0 && alertQuery.trim() ? (
+            <View
+              style={[
+                styles.emptyContainer,
+                {
+                  marginTop: 5,
+                  marginBottom: 20,
+                  alignItems: "center",
+                  paddingHorizontal: 24,
+                },
+              ]}
+            >
+              <Image
+                source={isDark ? NotFound : NotFoundLight}
+                style={{
+                  width: 200,
+                  height: 200,
+                  marginBottom: 6,
+                }}
+                resizeMode="contain"
+              />
 
-            // This gift's add/save is in flight: show it in place
-            // already, with a spinner where the switch normally sits,
-            // no chevron, and no press handling.
-            if (isGiftKey && key === pendingGiftKey) {
+              <Text
+                style={[
+                  styles.emptyText,
+                  {
+                    color: theme.onSurface,
+                    fontSize: 13,
+                    fontWeight: "700",
+                    textAlign: "center",
+                    letterSpacing: 0.1,
+                  },
+                ]}
+              >
+                Alert for "{alertQuery}" couldn't be found
+              </Text>
+
+              <Text
+                style={[
+                  styles.emptyText,
+                  {
+                    color: theme.onSurfaceVariant,
+                    marginTop: 8,
+                    fontSize: 10,
+                    lineHeight: 21,
+                    textAlign: "center",
+                    maxWidth: 300,
+                    opacity: 0.85,
+                  },
+                ]}
+              >
+                Try adding an alert below to start receiving notifications for
+                it.
+              </Text>
+            </View>
+          ) : (
+            filteredKeys.map((key, index) => {
+              const isLastRow = index < filteredKeys.length - 1;
+              const isGiftKey = !isBaseAlertKey(key);
+
+              // This gift's add/save is in flight: show it in place
+              // already, with a spinner where the switch normally sits,
+              // no chevron, and no press handling.
+              if (isGiftKey && key === pendingGiftKey) {
+                const display = getAlertDisplay(key);
+
+                return (
+                  <React.Fragment key={key}>
+                    <View style={styles.alertRowPending}>
+                      {display.imageUrl ? (
+                        <Image
+                          source={{ uri: display.imageUrl }}
+                          style={styles.alertGiftIcon}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <Text style={styles.alertEmoji}>{display.emoji}</Text>
+                      )}
+
+                      <Text
+                        style={[
+                          styles.alertPendingLabel,
+                          { color: theme.onSurface },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {display.label}
+                      </Text>
+
+                      <View style={{ flex: 1 }} />
+
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    </View>
+
+                    {isLastRow && (
+                      <View
+                        style={[
+                          styles.rowDivider,
+                          { backgroundColor: theme.outline },
+                        ]}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              }
+
+              // Gift rows wait for both the gift catalog and gift
+              // preferences to resolve, so we never flash the
+              // "Gift {id}" fallback or a partial name/count.
+              if (isGiftKey && !giftDataReady) {
+                return (
+                  <React.Fragment key={key}>
+                    <View style={styles.alertRowSkeleton}>
+                      <Skeleton width={28} height={28} borderRadius={14} />
+                      <Skeleton width={150} height={15} borderRadius={4} />
+                      <View style={{ flex: 1 }} />
+                      <Skeleton width={40} height={22} borderRadius={11} />
+                    </View>
+
+                    {isLastRow && (
+                      <View
+                        style={[
+                          styles.rowDivider,
+                          { backgroundColor: theme.outline },
+                        ]}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              }
+
               const display = getAlertDisplay(key);
 
+              const enabled = alerts[key]?.enabled ?? false;
+
               return (
                 <React.Fragment key={key}>
-                  <View style={styles.alertRowPending}>
-                    {display.imageUrl ? (
-                      <Image
-                        source={{ uri: display.imageUrl }}
-                        style={styles.alertGiftIcon}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <Text style={styles.alertEmoji}>{display.emoji}</Text>
-                    )}
-
-                    <Text
-                      style={[
-                        styles.alertPendingLabel,
-                        { color: theme.onSurface },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {display.label}
-                    </Text>
-
-                    <View style={{ flex: 1 }} />
-
-                    <ActivityIndicator size="small" color={theme.primary} />
-                  </View>
-
-                  {isLastRow && (
-                    <View
-                      style={[
-                        styles.rowDivider,
-                        { backgroundColor: theme.outline },
-                      ]}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            }
-
-            // Gift rows wait for both the gift catalog and gift
-            // preferences to resolve, so we never flash the
-            // "Gift {id}" fallback or a partial name/count.
-            if (isGiftKey && !giftDataReady) {
-              return (
-                <React.Fragment key={key}>
-                  <View style={styles.alertRowSkeleton}>
-                    <Skeleton width={28} height={28} borderRadius={14} />
-                    <Skeleton width={150} height={15} borderRadius={4} />
-                    <View style={{ flex: 1 }} />
-                    <Skeleton width={40} height={22} borderRadius={11} />
-                  </View>
-
-                  {isLastRow && (
-                    <View
-                      style={[
-                        styles.rowDivider,
-                        { backgroundColor: theme.outline },
-                      ]}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            }
-
-            const display = getAlertDisplay(key);
-
-            const enabled = alerts[key]?.enabled ?? false;
-
-            return (
-              <React.Fragment key={key}>
-                <ToggleRow
-                  icon={
-                    display.imageUrl ? (
-                      <Image
-                        source={{ uri: display.imageUrl }}
-                        style={styles.alertGiftIcon}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <Text style={styles.alertEmoji}>{display.emoji}</Text>
-                    )
-                  }
-                  label={display.label}
-                  value={enabled}
-                  onValueChange={() => toggleAlert(key)}
-                  onPress={() => router.push(`/sound-alert/${key}` as any)}
-                  showChevron
-                />
-
-                {isLastRow && (
-                  <View
-                    style={[
-                      styles.rowDivider,
-                      {
-                        backgroundColor: theme.outline,
-                      },
-                    ]}
+                  <ToggleRow
+                    icon={
+                      display.imageUrl ? (
+                        <Image
+                          source={{ uri: display.imageUrl }}
+                          style={styles.alertGiftIcon}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <Text style={styles.alertEmoji}>{display.emoji}</Text>
+                      )
+                    }
+                    label={display.label}
+                    value={enabled}
+                    onValueChange={() => toggleAlert(key)}
+                    onPress={() => router.push(`/sound-alert/${key}` as any)}
+                    showChevron
                   />
-                )}
-              </React.Fragment>
-            );
-          })}
+
+                  {isLastRow && (
+                    <View
+                      style={[
+                        styles.rowDivider,
+                        {
+                          backgroundColor: theme.outline,
+                        },
+                      ]}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })
+          )}
 
           <View
             style={[
@@ -827,17 +918,6 @@ export default function TtsGiftTab() {
       >
         <View style={styles.pickerHeader}>
           <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                styles.pickerTitle,
-                {
-                  color: theme.onSurface,
-                },
-              ]}
-            >
-              Select a TikTok gift
-            </Text>
-
             <Text
               style={[
                 styles.pickerSub,
@@ -916,12 +996,20 @@ export default function TtsGiftTab() {
 
                 return (
                   <Pressable
-                    onPress={() => handleGiftPress(gift)}
+                    onPress={() => {
+                      if (premiumLocked) {
+                        router.push("/pricing");
+                        return;
+                      }
+
+                      handleGiftPress(gift);
+                    }}
                     style={[
                       styles.giftRow,
                       {
                         borderColor: added ? theme.primary : theme.outline,
                         backgroundColor: added ? theme.surface : "transparent",
+                        opacity: premiumLocked ? 0.7 : 1,
                       },
                     ]}
                   >
@@ -960,7 +1048,13 @@ export default function TtsGiftTab() {
                       </Text>
                     </View>
 
-                    {added ? (
+                    {premiumLocked ? (
+                      <Ionicons
+                        name="lock-closed"
+                        size={18}
+                        color={theme.onSurfaceVariant}
+                      />
+                    ) : added ? (
                       <Ionicons
                         name="checkmark-circle"
                         size={20}
@@ -1128,5 +1222,8 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: 12,
+  },
+  scrollContent: {
+    paddingBottom: 140,
   },
 });
