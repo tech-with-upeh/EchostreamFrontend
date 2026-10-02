@@ -537,9 +537,7 @@ export default function HelpCenterScreen() {
         style={styles.chatbotWrapper}
       >
         <Pressable
-          onPress={() => {
-            console.log("Open AI help assistant");
-          }}
+          onPress={() => router.push("/livechat")}
           style={({ pressed }) => [
             styles.chatbotButton,
             {
