@@ -459,3 +459,38 @@ export function putNotifPreference(
     body: JSON.stringify(preferences),
   });
 }
+
+
+export function createHelpConversation(title?: string | null) {
+  return request<import("@/lib/schema").HelpConversation>("/help/chat/conversations", {
+    method: "POST",
+    body: JSON.stringify({ title: title ?? null }),
+  });
+}
+
+export function listHelpConversations() {
+  return request<import("@/lib/schema").HelpConversation[]>("/help/chat/conversations");
+}
+
+export function getHelpConversation(id: string) {
+  return request<import("@/lib/schema").HelpConversationDetail>(
+    `/help/chat/conversations/${encodeURIComponent(id)}`,
+  );
+}
+
+export function sendHelpMessage(id: string, content: string) {
+  return request<import("@/lib/schema").HelpChatResponse>(
+    `/help/chat/conversations/${encodeURIComponent(id)}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
+export function closeHelpConversation(id: string) {
+  return request<import("@/lib/schema").HelpConversation>(
+    `/help/chat/conversations/${encodeURIComponent(id)}/close`,
+    { method: "POST" },
+  );
+}
