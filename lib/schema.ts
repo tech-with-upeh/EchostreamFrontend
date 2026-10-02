@@ -196,3 +196,48 @@ export type NotificationPreferenceResponse = {
   account_security_enabled: boolean;
   product_updates_enabled: boolean;
 };
+
+
+export type HelpConversationStatus = "active" | "closed";
+
+export interface HelpConversation {
+  id: string;
+  title: string | null;
+  status: HelpConversationStatus;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type HelpMessageRole = "user" | "assistant" | "system";
+
+export interface HelpMessage {
+  id: number;
+  role: HelpMessageRole;
+  content: string;
+  model: string | null;
+  provider: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+export interface HelpConversationDetail extends HelpConversation {
+  messages: HelpMessage[];
+}
+
+export interface HelpSource {
+  id: number;
+  slug: string;
+  title: string;
+  category_slug: string;
+  category_title: string;
+}
+
+export interface HelpChatResponse {
+  user_message: HelpMessage;
+  assistant_message: HelpMessage;
+  sources: HelpSource[];
+  needs_human_support: boolean;
+}
